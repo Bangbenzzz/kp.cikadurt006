@@ -201,7 +201,7 @@ export default function DashboardLayout({ children }) {
                     <button onClick={() => setMobileSidebarOpen(true)} style={{ background: 'none', border: 'none', color: '#00aaff', fontSize: '1.5rem', cursor: 'pointer' }}>☰</button>
                 ) : (
                     // JUDUL KEMBALI KE AWAL
-                    <h2 style={{ fontSize: "1.3rem", fontWeight: "600", background: "linear-gradient(to right, #00eaff, #0077ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Kp. Cikadu RT. 06</h2>
+                    <h2 style={{ fontSize: "1.3rem", fontWeight: "600", background: "linear-gradient(to right, #00eaff, #0077ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Dashboard</h2>
                 )}
                 {!isMobile && (
                     <nav style={{ display: "flex", gap: "0.5rem" }}>
