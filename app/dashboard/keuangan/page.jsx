@@ -72,7 +72,7 @@ export default function KeuanganPage() {
         </h2>
         
         <p style={{ zIndex: 1, maxWidth: '500px', color: '#888', lineHeight: '1.6', marginBottom: '2.5rem' }}>
-            Fitur ini sedang dalam tahap pengembangan oleh tim teknis. Nantinya Anda dapat memantau pemasukan iuran, pengeluaran operasional, dan saldo kas RT secara realtime.
+            Fitur ini sedang dalam tahap pengembangan oleh Niki. Nantinya Anda dapat memantau pemasukan iuran, pengeluaran operasional, dan saldo kas RT secara realtime.
         </p>
 
         {/* Ilustrasi Grafik (Dummy) */}
@@ -114,7 +114,7 @@ export default function KeuanganPage() {
           gap: '0.5rem'
       }}>
           <span>&copy; {new Date().getFullYear()} Sistem Administrasi RT.</span>
-          <span style={{ color: '#00aaff', fontWeight: '600' }}>Web Engineer Niki Azis</span>
+          <span style={{ color: '#00aaff', fontWeight: '600' }}>Fullstack Engineer Niki Azis</span>
       </footer>
 
       {/* Animasi Floating untuk Ikon */}
