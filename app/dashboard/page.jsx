@@ -1,6 +1,6 @@
 "use client";
 
-// --- 1. NUCLEAR CONSOLE PATCH (Peredam Error Wajib Paling Atas) ---
+// --- 1. NUCLEAR CONSOLE PATCH ---
 if (typeof window !== 'undefined') {
   const originalError = console.error;
   console.error = (...args) => {
@@ -11,7 +11,6 @@ if (typeof window !== 'undefined') {
     originalError.call(console, ...args);
   };
 }
-// ------------------------------------------------------------------
 
 import { useState, useEffect, useMemo } from "react";
 import { db, collection, onSnapshot } from "@/lib/firebase";
@@ -19,10 +18,8 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
 
-// --- IMPORT IKON MODERN (LUCIDE REACT) ---
 import { 
-  LuLayoutDashboard, LuUsers, LuUserCheck, LuHouse, LuWallet, 
-  LuUserX, LuShieldCheck, LuPartyPopper, LuX, LuZap, LuActivity, LuCheckCircle2 
+  LuUsers, LuHouse, LuWallet, LuUserX, LuZap, LuBriefcase 
 } from "react-icons/lu";
 
 // --- HELPER FUNCTIONS ---
@@ -46,11 +43,10 @@ const getAgeCategory = (age) => {
     return "Lansia";
 };
 
-// Warna Modern
 const COLORS_GENDER = ['#0ea5e9', '#f43f5e']; 
 const COLORS_AGE = ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#10b981', '#ef4444'];
+const COLORS_JOB = ['#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6']; 
 
-// Style text gradient
 const gradientTextStyle = {
     background: "linear-gradient(to right, #00eaff, #0077ff)",
     WebkitBackgroundClip: "text",
@@ -58,12 +54,7 @@ const gradientTextStyle = {
     display: "inline-block"
 };
 
-// --- STYLE WRAPPER (Tinggi Chart 160px) ---
-const chartWrapperStyle = { 
-    width: '100%', 
-    height: '160px', 
-    position: 'relative' 
-};
+const chartWrapperStyle = { width: '100%', height: '160px', position: 'relative' };
 
 export default function DashboardHome() {
   const [warga, setWarga] = useState([]);
@@ -71,70 +62,44 @@ export default function DashboardHome() {
   const [time, setTime] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
   
-  // State Notification
-  const [showWelcome, setShowWelcome] = useState(false);
-
   useEffect(() => {
     setIsClient(true);
-
-    // --- LOGIC POPUP PINTAR (SESSION STORAGE) ---
-    const hasSeenWelcome = sessionStorage.getItem('welcome_seen');
-
-    if (!hasSeenWelcome) {
-        setTimeout(() => {
-            setShowWelcome(true);
-            sessionStorage.setItem('welcome_seen', 'true');
-        }, 500);
-    }
-    // ------------------------------------------------------------
-
     const timer = setInterval(() => setTime(new Date()), 1000);
     const unsubWarga = onSnapshot(collection(db, 'warga'), (snap) => {
         setWarga(snap.docs.map(doc => doc.data()));
         setLoading(false);
     });
-
-    return () => { 
-        clearInterval(timer); 
-        unsubWarga(); 
-    }
+    return () => { clearInterval(timer); unsubWarga(); }
   }, []);
 
   const stats = useMemo(() => {
       const active = warga.filter(w => !w.is_dead);
       const total = active.length;
+      
       const jumlahKepalaKeluarga = active.filter(w => {
           const allStatus = [w.status_hubungan, w.shdk, w.status_keluarga, w.status, w.posisi].join(" ").toUpperCase(); 
           return allStatus.includes("KEPALA") || allStatus.includes("KK");
       }).length;
       const uniqueKK = new Set(active.map(w => String(w.no_kk || "").trim()).filter(k => k.length > 5)).size;
       const totalKK = jumlahKepalaKeluarga > 0 ? jumlahKepalaKeluarga : uniqueKK;
-      const l = active.filter(w => {
-          const jk = (w.jenis_kelamin || "").toString().toUpperCase();
-          return jk === 'L' || jk === 'LAKI-LAKI';
-      }).length;
-      const p = active.filter(w => {
-          const jk = (w.jenis_kelamin || "").toString().toUpperCase();
-          return jk === 'P' || jk === 'PEREMPUAN' || jk === 'WANITA';
-      }).length;
+      
+      const l = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'L' || jk === 'LAKI-LAKI'; }).length;
+      const p = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'P' || jk === 'PEREMPUAN' || jk === 'WANITA'; }).length;
       const genderData = [ { name: 'Laki-Laki', value: l }, { name: 'Perempuan', value: p } ];
+      
       const catCounts = { "Balita": 0, "Anak": 0, "Remaja": 0, "Dewasa": 0, "Lansia": 0, "Meninggal": 0 };
       warga.forEach(w => {
           if (w.is_dead) { catCounts["Meninggal"]++; } 
-          else {
-              const age = getAge(w.tgl_lahir);
-              const c = getAgeCategory(age);
-              if(catCounts[c] !== undefined) catCounts[c]++;
-          }
+          else { const age = getAge(w.tgl_lahir); const c = getAgeCategory(age); if(catCounts[c] !== undefined) catCounts[c]++; }
       });
       const ageData = Object.keys(catCounts).map(key => ({ name: key, jumlah: catCounts[key] }));
+
       const latest = [...warga].sort((a, b) => {
           const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
           return timeB - timeA; 
       }).slice(0, 5);
       
-      // Mock Data Finance
       const financeData = [
         { bulan: 'Mei', masuk: 1500000, keluar: 500000 },
         { bulan: 'Jun', masuk: 1200000, keluar: 800000 },
@@ -145,131 +110,38 @@ export default function DashboardHome() {
       ];
       const totalSaldo = 12500000; 
       
-      // --- LOGIC BARU: Menghitung Warga Usia Produktif (15-55 Tahun) ---
       const wargaProduktif = active.filter(w => {
           const age = getAge(w.tgl_lahir);
-          // Range usia 15 sampai 55 tahun
           return age >= 15 && age <= 55;
       }).length;
 
-      return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
+      const jobCounts = {};
+      active.forEach(w => {
+          let job = (w.pekerjaan || "Lainnya").toUpperCase();
+          if(job.includes("SWASTA")) job = "SWASTA";
+          else if(job.includes("RUMAH TANGGA")) job = "IRT";
+          else if(job.includes("PELAJAR")) job = "PELAJAR";
+          else if(job.includes("BELUM") || job.includes("TIDAK")) job = "TDK KERJA";
+          else job = "LAINNYA";
+          
+          jobCounts[job] = (jobCounts[job] || 0) + 1;
+      });
+      const jobData = Object.keys(jobCounts)
+        .map(key => ({ name: key, value: jobCounts[key] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 4); 
+
+      return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif, jobData };
   }, [warga]);
 
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat...</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%', maxWidth: '100%', overflowX: 'hidden', position: 'relative' }}>
-        
-        {/* --- CSS ANIMATION UNTUK POPUP --- */}
-        <style jsx global>{`
-            @keyframes slideDownFade {
-                0% { opacity: 0; transform: translateY(-40px) scale(0.98); }
-                100% { opacity: 1; transform: translateY(0) scale(1); }
-            }
-            @keyframes pulseLine {
-                0% { opacity: 0.3; }
-                50% { opacity: 1; box-shadow: 0 0 10px #00eaff; }
-                100% { opacity: 0.3; }
-            }
-        `}</style>
-
-        {/* --- POPUP NOTIFIKASI MODERN (POSISI DI ATAS) --- */}
-        {showWelcome && (
-            <div style={{
-                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                background: 'rgba(0,0,0,0.5)', // Gelap tapi transparan biar chart bawah keliatan
-                backdropFilter: 'blur(3px)',
-                zIndex: 99999, 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'flex-start', // MEMBUAT POSISI DI ATAS
-                paddingTop: '2rem', // Jarak dari atas layar
-                paddingLeft: '1rem',
-                paddingRight: '1rem'
-            }}>
-                <div style={{
-                    width: '100%',
-                    maxWidth: '480px',
-                    background: '#111', // Pure dark
-                    border: '1px solid #333',
-                    borderLeft: '4px solid #00eaff', // Aksen di kiri
-                    borderRadius: '12px',
-                    padding: '1.2rem',
-                    position: 'relative',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
-                    animation: 'slideDownFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem'
-                }}>
-                    
-                    {/* Icon Section */}
-                    <div style={{
-                        width: '48px', height: '48px',
-                        background: 'rgba(0, 234, 255, 0.1)',
-                        borderRadius: '10px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#00eaff', fontSize: '1.5rem',
-                        flexShrink: 0,
-                        border: '1px solid rgba(0, 234, 255, 0.2)'
-                    }}>
-                        <LuActivity />
-                    </div>
-
-                    {/* Content Text */}
-                    <div style={{ flex: 1 }}>
-                        <h3 style={{ 
-                            color: '#fff', fontSize: '1rem', fontWeight: '700', margin: 0,
-                            display: 'flex', alignItems: 'center', gap: '6px'
-                        }}>
-                            Sistem Terintegrasi
-                            <span style={{ 
-                                fontSize: '0.6rem', background: '#00eaff', color: '#000', 
-                                padding: '2px 6px', borderRadius: '4px', fontWeight: '800'
-                            }}>LIVE</span>
-                        </h3>
-                        <p style={{ 
-                            color: '#888', fontSize: '0.8rem', margin: '4px 0 0 0', lineHeight: '1.4' 
-                        }}>
-                            Dashboard RT. 06 siap digunakan. Data kependudukan & kas dimuat 100%.
-                        </p>
-                    </div>
-
-                    {/* Close Button Modern */}
-                    <button 
-                        onClick={() => setShowWelcome(false)}
-                        style={{
-                            background: 'transparent', border: 'none', color: '#666',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: '32px', height: '32px', borderRadius: '6px',
-                            transition: 'all 0.2s',
-                            flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666'; }}
-                    >
-                        <LuX size={20} />
-                    </button>
-
-                    {/* Decorative Glow Line at Bottom */}
-                    <div style={{
-                        position: 'absolute', bottom: '-1px', left: '12px', right: '12px',
-                        height: '1px', background: 'linear-gradient(90deg, transparent, #00eaff, transparent)',
-                        opacity: 0.5
-                    }}></div>
-                </div>
-            </div>
-        )}
-        
         {/* --- HEADER --- */}
-        <div style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', 
-            gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' 
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
             <div>
-                <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', ...gradientTextStyle }}>
-                    Kp. Cikadu RT. 06
-                </h1>
+                <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', ...gradientTextStyle }}>Kp. Cikadu RT. 06</h1>
                 <p style={{ margin: 0, fontSize: '0.70rem', color: '#888' }}>Ketua RT. 06 - Dedi Suryadi</p>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -282,14 +154,18 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- KARTU STATISTIK --- */}
+        {/* --- GRID LAYOUT UTAMA --- */}
         <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+            gridTemplateColumns: '1fr 1fr', 
             gap: '0.6rem' 
         }}>
-            <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="Jiwa (Hidup)" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
-            <CardStat icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="Kartu Keluarga" color="#00ff88" bg="rgba(0, 255, 136, 0.1)"/>
+            
+            {/* BARIS 1 */}
+            <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="Jiwa" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
+            <CardStat icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" bg="rgba(0, 255, 136, 0.1)"/>
+            
+            {/* BARIS 2 (SALDO) */}
             <CardStat 
                 icon={<LuWallet />} 
                 label="Saldo Kas RT" 
@@ -298,29 +174,57 @@ export default function DashboardHome() {
                 color="#f59e0b" 
                 bg="rgba(245, 158, 11, 0.1)"
                 isCurrency={true}
+                isWide={true} 
             />
-            {/* --- KARTU KE-4: USIA PRODUKTIF (15-55 TAHUN) - WARNA UNGU --- */}
+            
+            {/* BARIS 3 */}
             <CardStat 
                 icon={<LuZap />} 
-                label="Usia Produktif" 
+                label="Produktif" 
                 value={`${stats.wargaProduktif}`} 
-                sub="Usia 15-55 Tahun" 
+                sub="15-55 Thn" 
                 color="#8b5cf6" 
                 bg="rgba(139, 92, 246, 0.1)"
             />
+
+            {/* MINI CHART PEKERJAAN */}
+            <div style={{ 
+                background: '#161616', border: `1px solid rgba(6, 182, 212, 0.3)`, borderRadius: '10px', 
+                padding: '0.5rem', position: 'relative', overflow: 'hidden', 
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ display:'flex', gap:'4px', alignItems:'center', marginBottom:'-5px', zIndex:2 }}>
+                    {/* UKURAN ICON & TEXT CHART DIPERBESAR SEDIKIT */}
+                    <LuBriefcase style={{color:'#06b6d4', fontSize:'1rem'}} /> 
+                    <span style={{fontSize:'0.7rem', color:'#888', fontWeight:'700'}}>PEKERJAAN</span>
+                </div>
+                
+                {isClient && (
+                    <div style={{ width: '100%', height: '70px' }}>
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie data={stats.jobData} cx="50%" cy="50%" innerRadius={18} outerRadius={30} paddingAngle={2} dataKey="value" stroke="none">
+                                    {stats.jobData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS_JOB[index % COLORS_JOB.length]} /> ))}
+                                </Pie>
+                                <Tooltip contentStyle={{ backgroundColor: '#111', border: 'none', fontSize:'0.6rem', padding:'4px' }} itemStyle={{padding:0}} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+                <div style={{ display:'flex', gap:'4px', fontSize:'0.65rem', color:'#bbb', flexWrap:'wrap', justifyContent:'center', marginTop:'-5px' }}>
+                     {stats.jobData.slice(0,2).map((j,i) => (
+                        <span key={i} style={{color: COLORS_JOB[i]}}>• {j.name}</span>
+                     ))}
+                </div>
+            </div>
+
         </div>
 
-        {/* --- AREA GRAFIK --- */}
-        <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-            gap: '0.8rem' 
-        }}>
-            {/* CHART 1: KEUANGAN */}
+        {/* --- AREA GRAFIK BESAR --- */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.8rem' }}>
             <div style={containerStyle}>
-                <h3 style={headerStyle}>
-                    <LuWallet style={{color: '#f59e0b'}}/> Arus Kas (6 Bulan)
-                </h3>
+                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Grafik Kas</h3>
                 <div style={chartWrapperStyle}>
                     {isClient && (
                         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
@@ -347,11 +251,8 @@ export default function DashboardHome() {
                 </div>
             </div>
 
-            {/* CHART 2: DEMOGRAFI */}
             <div style={containerStyle}>
-                <h3 style={headerStyle}>
-                    <LuUsers style={{color: '#8b5cf6'}}/> Usia & Status
-                </h3>
+                <h3 style={headerStyle}><LuUsers style={{color: '#8b5cf6'}}/> Usia & Status</h3>
                 <div style={chartWrapperStyle}>
                     {isClient && (
                         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
@@ -361,31 +262,9 @@ export default function DashboardHome() {
                                 <YAxis stroke="#666" fontSize={9} tickLine={false} axisLine={false} />
                                 <Tooltip contentStyle={{ backgroundColor: '#222', border: '1px solid #444', fontSize:'0.65rem' }} itemStyle={{ color: '#fff' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                                 <Bar dataKey="jumlah" radius={[3, 3, 0, 0]} barSize={20}>
-                                    {stats.ageData.map((entry, index) => ( 
-                                        <Cell key={`cell-${index}`} fill={COLORS_AGE[index % COLORS_AGE.length]} /> 
-                                    ))}
+                                    {stats.ageData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS_AGE[index % COLORS_AGE.length]} /> ))}
                                 </Bar>
                             </BarChart>
-                        </ResponsiveContainer>
-                    )}
-                </div>
-            </div>
-
-            {/* CHART 3: GENDER */}
-            <div style={containerStyle}>
-                <h3 style={headerStyle}>
-                    <LuUserCheck style={{color: '#0ea5e9'}}/> Gender
-                </h3>
-                <div style={chartWrapperStyle}>
-                    {isClient && (
-                        <ResponsiveContainer width="99%" height="100%" minWidth={0}>
-                            <PieChart>
-                                <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={5} dataKey="value" stroke="none">
-                                    {stats.genderData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS_GENDER[index % COLORS_GENDER.length]} /> ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: '#222', border: '1px solid #444', fontSize:'0.65rem' }} itemStyle={{ color: '#fff' }} />
-                                <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8} wrapperStyle={{fontSize:'0.65rem'}} />
-                            </PieChart>
                         </ResponsiveContainer>
                     )}
                 </div>
@@ -426,55 +305,36 @@ export default function DashboardHome() {
                 )) : <div style={{color:'#666', padding:'0.5rem', textAlign:'center', fontSize:'0.7rem'}}>Kosong.</div>}
             </div>
         </div>
-
     </div>
   );
 }
 
-// --- KOMPONEN KARTU ---
-const CardStat = ({ icon, label, value, sub, color, bg, isCurrency }) => (
+// --- KOMPONEN KARTU (SIZE UPDATE) ---
+const CardStat = ({ icon, label, value, sub, color, bg, isCurrency, isWide }) => (
     <div style={{ 
         background: '#161616', border: `1px solid ${color}30`, borderRadius: '10px', padding: '0.8rem',
         position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0.2rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        gridColumn: isWide ? 'span 2' : 'auto', 
     }}>
-        <div style={{ 
-            position: 'absolute', top: '-8px', right: '-8px', 
-            width: '40px', height: '40px', background: bg, 
-            borderRadius: '50%', filter: 'blur(15px)', zIndex: 0 
-        }}></div>
-        
+        <div style={{ position: 'absolute', top: '-8px', right: '-8px', width: '40px', height: '40px', background: bg, borderRadius: '50%', filter: 'blur(15px)', zIndex: 0 }}></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', zIndex: 1, marginBottom:'0.1rem' }}>
-            <div style={{ fontSize: '1rem', color: color }}>{icon}</div>
-            <div style={{ fontSize: '0.6rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+            {/* ICON & LABEL DIPERBESAR */}
+            <div style={{ fontSize: '1.2rem', color: color }}>{icon}</div>
+            <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
         </div>
-        <div style={{ fontSize: isCurrency ? '1.1rem' : '1.4rem', fontWeight: '700', color: '#fff', lineHeight: 1, zIndex: 1, marginTop:'2px' }}>
+        <div style={{ 
+            // KHUSUS CURRENCY (RP) TETAP SAMA, YANG LAIN DIPERBESAR
+            fontSize: isCurrency ? 'clamp(1.2rem, 5vw, 1.8rem)' : '1.8rem', 
+            fontWeight: '700', color: '#fff', lineHeight: 1, zIndex: 1, marginTop:'2px',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+        }}>
             {value}
         </div>
-        <div style={{ fontSize: '0.6rem', color: color, opacity: 0.9, zIndex: 1 }}>
-            {sub}
-        </div>
+        {/* SUBTEXT DIPERBESAR */}
+        <div style={{ fontSize: '0.7rem', color: color, opacity: 0.9, zIndex: 1 }}>{sub}</div>
     </div>
 );
 
-// --- STYLE HELPER ---
-const containerStyle = {
-    background: '#161616', 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    borderRadius: '10px', 
-    padding: '0.8rem', 
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0 
-};
-
-const headerStyle = { 
-    margin: '0 0 0.5rem', 
-    color: '#fff', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '0.4rem', 
-    fontSize: '0.75rem',
-    fontWeight: '600'
-};
+const containerStyle = { background: '#161616', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', padding: '0.8rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', minWidth: 0 };
+const headerStyle = { margin: '0 0 0.5rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', fontWeight: '600' };
