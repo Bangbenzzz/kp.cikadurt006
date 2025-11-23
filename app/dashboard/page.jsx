@@ -22,7 +22,7 @@ import {
 // --- IMPORT IKON MODERN (LUCIDE REACT) ---
 import { 
   LuLayoutDashboard, LuUsers, LuUserCheck, LuHouse, LuWallet, 
-  LuUserX, LuShieldCheck, LuPartyPopper, LuX, LuZap 
+  LuUserX, LuShieldCheck, LuPartyPopper, LuX, LuZap, LuActivity, LuCheckCircle2 
 } from "react-icons/lu";
 
 // --- HELPER FUNCTIONS ---
@@ -78,14 +78,11 @@ export default function DashboardHome() {
     setIsClient(true);
 
     // --- LOGIC POPUP PINTAR (SESSION STORAGE) ---
-    // Cek apakah user sudah pernah melihat notif di sesi ini?
     const hasSeenWelcome = sessionStorage.getItem('welcome_seen');
 
     if (!hasSeenWelcome) {
-        // Jika belum lihat, tampilkan notif (dengan delay sedikit biar smooth)
         setTimeout(() => {
             setShowWelcome(true);
-            // Simpan tanda bahwa user sudah melihat
             sessionStorage.setItem('welcome_seen', 'true');
         }, 500);
     }
@@ -137,7 +134,7 @@ export default function DashboardHome() {
           return timeB - timeA; 
       }).slice(0, 5);
       
-      // Mock Data
+      // Mock Data Finance
       const financeData = [
         { bulan: 'Mei', masuk: 1500000, keluar: 500000 },
         { bulan: 'Jun', masuk: 1200000, keluar: 800000 },
@@ -147,9 +144,15 @@ export default function DashboardHome() {
         { bulan: 'Okt', masuk: 2500000, keluar: 1000000 },
       ];
       const totalSaldo = 12500000; 
-      const petugasRonda = 4;
+      
+      // --- LOGIC BARU: Menghitung Warga Usia Produktif (15-55 Tahun) ---
+      const wargaProduktif = active.filter(w => {
+          const age = getAge(w.tgl_lahir);
+          // Range usia 15 sampai 55 tahun
+          return age >= 15 && age <= 55;
+      }).length;
 
-      return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, petugasRonda };
+      return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
   }, [warga]);
 
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat...</div>;
@@ -159,103 +162,101 @@ export default function DashboardHome() {
         
         {/* --- CSS ANIMATION UNTUK POPUP --- */}
         <style jsx global>{`
-            @keyframes popIn {
-                0% { opacity: 0; transform: scale(0.8) translateY(20px); }
-                60% { opacity: 1; transform: scale(1.05) translateY(0); }
-                100% { opacity: 1; transform: scale(1) translateY(0); }
+            @keyframes slideDownFade {
+                0% { opacity: 0; transform: translateY(-40px) scale(0.98); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
             }
-            @keyframes glow {
-                0% { box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
-                50% { box-shadow: 0 0 25px rgba(0, 234, 255, 0.5); }
-                100% { box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
+            @keyframes pulseLine {
+                0% { opacity: 0.3; }
+                50% { opacity: 1; box-shadow: 0 0 10px #00eaff; }
+                100% { opacity: 0.3; }
             }
         `}</style>
 
-        {/* --- POPUP NOTIFIKASI MODERN --- */}
+        {/* --- POPUP NOTIFIKASI MODERN (POSISI DI ATAS) --- */}
         {showWelcome && (
             <div style={{
                 position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
-                zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center',
-                padding: '1.5rem'
+                background: 'rgba(0,0,0,0.5)', // Gelap tapi transparan biar chart bawah keliatan
+                backdropFilter: 'blur(3px)',
+                zIndex: 99999, 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'flex-start', // MEMBUAT POSISI DI ATAS
+                paddingTop: '2rem', // Jarak dari atas layar
+                paddingLeft: '1rem',
+                paddingRight: '1rem'
             }}>
                 <div style={{
-                    background: 'linear-gradient(145deg, #1a1a1a, #0f0f0f)', 
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '24px', 
-                    padding: '2rem', 
-                    maxWidth: '360px', 
                     width: '100%',
-                    textAlign: 'center',
-                    position: 'relative', 
-                    animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards', 
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    maxWidth: '480px',
+                    background: '#111', // Pure dark
+                    border: '1px solid #333',
+                    borderLeft: '4px solid #00eaff', // Aksen di kiri
+                    borderRadius: '12px',
+                    padding: '1.2rem',
+                    position: 'relative',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+                    animation: 'slideDownFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem'
                 }}>
-                    {/* Tombol Close Circle */}
-                    <button 
-                        onClick={() => setShowWelcome(false)}
-                        style={{
-                            position: 'absolute', top: '12px', right: '12px',
-                            background: 'rgba(255,255,255,0.05)', border: 'none', color: '#888',
-                            width: '30px', height: '30px', borderRadius: '50%',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            cursor: 'pointer', fontSize: '1rem', transition: '0.2s'
-                        }}
-                    >
-                        <LuX />
-                    </button>
-
-                    {/* Ikon dengan Glow Effect */}
+                    
+                    {/* Icon Section */}
                     <div style={{
-                        position: 'relative', margin: '0 auto 1.2rem', width: 'fit-content'
+                        width: '48px', height: '48px',
+                        background: 'rgba(0, 234, 255, 0.1)',
+                        borderRadius: '10px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#00eaff', fontSize: '1.5rem',
+                        flexShrink: 0,
+                        border: '1px solid rgba(0, 234, 255, 0.2)'
                     }}>
-                        <div style={{
-                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                            width: '60px', height: '60px', background: '#00eaff', borderRadius: '50%',
-                            filter: 'blur(30px)', opacity: 0.4, zIndex: 0
-                        }}></div>
-                        <div style={{
-                            width: '64px', height: '64px', 
-                            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-                            border: '1px solid rgba(0, 234, 255, 0.3)',
-                            borderRadius: '20px', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                            fontSize: '2rem', color: '#00eaff', zIndex: 1,
-                            position: 'relative', animation: 'glow 3s infinite'
-                        }}>
-                            <LuPartyPopper />
-                        </div>
+                        <LuActivity />
                     </div>
 
-                    {/* Teks Sambutan */}
-                    <h2 style={{ 
-                        color: '#fff', fontSize: '1.3rem', fontWeight: '700', 
-                        marginBottom: '0.4rem', letterSpacing: '-0.5px' 
-                    }}>
-                        Selamat Datang!
-                    </h2>
-                    <p style={{ 
-                        color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', 
-                        marginBottom: '1.5rem' 
-                    }}>
-                        Dashboard <b>RT. 06</b> siap digunakan. Pantau warga, kas, & keamanan dalam satu layar.
-                    </p>
+                    {/* Content Text */}
+                    <div style={{ flex: 1 }}>
+                        <h3 style={{ 
+                            color: '#fff', fontSize: '1rem', fontWeight: '700', margin: 0,
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                            Sistem Terintegrasi
+                            <span style={{ 
+                                fontSize: '0.6rem', background: '#00eaff', color: '#000', 
+                                padding: '2px 6px', borderRadius: '4px', fontWeight: '800'
+                            }}>LIVE</span>
+                        </h3>
+                        <p style={{ 
+                            color: '#888', fontSize: '0.8rem', margin: '4px 0 0 0', lineHeight: '1.4' 
+                        }}>
+                            Dashboard RT. 06 siap digunakan. Data kependudukan & kas dimuat 100%.
+                        </p>
+                    </div>
 
-                    {/* Tombol Compact Modern */}
+                    {/* Close Button Modern */}
                     <button 
                         onClick={() => setShowWelcome(false)}
                         style={{
-                            background: 'linear-gradient(to right, #00eaff, #0077ff)',
-                            border: 'none', borderRadius: '50px', 
-                            padding: '0.7rem 2rem', 
-                            color: '#fff', fontWeight: '600', cursor: 'pointer',
-                            fontSize: '0.85rem', letterSpacing: '0.5px',
-                            boxShadow: '0 4px 15px rgba(0, 119, 255, 0.4)',
-                            transition: 'transform 0.1s active'
+                            background: 'transparent', border: 'none', color: '#666',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: '32px', height: '32px', borderRadius: '6px',
+                            transition: 'all 0.2s',
+                            flexShrink: 0
                         }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666'; }}
                     >
-                        Mulai Kelola
+                        <LuX size={20} />
                     </button>
+
+                    {/* Decorative Glow Line at Bottom */}
+                    <div style={{
+                        position: 'absolute', bottom: '-1px', left: '12px', right: '12px',
+                        height: '1px', background: 'linear-gradient(90deg, transparent, #00eaff, transparent)',
+                        opacity: 0.5
+                    }}></div>
                 </div>
             </div>
         )}
@@ -266,16 +267,16 @@ export default function DashboardHome() {
             gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' 
         }}>
             <div>
-                <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', ...gradientTextStyle }}>
+                <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', ...gradientTextStyle }}>
                     Kp. Cikadu RT. 06
                 </h1>
-                <p style={{ margin: 0, fontSize: '0.80rem', color: '#888' }}>Ketua RT. 06 - Dedi Suryadi</p>
+                <p style={{ margin: 0, fontSize: '0.70rem', color: '#888' }}>Ketua RT. 06 - Dedi Suryadi</p>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px', ...gradientTextStyle }}>
+                <div style={{ fontSize: '1rem', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px', ...gradientTextStyle }}>
                     {time.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})} WIB
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: '500' }}>
+                <div style={{ fontSize: '0.70rem', color: '#888', fontWeight: '500' }}>
                     {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
                 </div>
             </div>
@@ -298,13 +299,14 @@ export default function DashboardHome() {
                 bg="rgba(245, 158, 11, 0.1)"
                 isCurrency={true}
             />
+            {/* --- KARTU KE-4: USIA PRODUKTIF (15-55 TAHUN) - WARNA UNGU --- */}
             <CardStat 
-                icon={<LuShieldCheck />} 
-                label="Petugas Ronda" 
-                value={`${stats.petugasRonda} Org`} 
-                sub="Jadwal Malam Ini" 
-                color="#f43f5e" 
-                bg="rgba(244, 63, 94, 0.1)"
+                icon={<LuZap />} 
+                label="Usia Produktif" 
+                value={`${stats.wargaProduktif}`} 
+                sub="Usia 15-55 Tahun" 
+                color="#8b5cf6" 
+                bg="rgba(139, 92, 246, 0.1)"
             />
         </div>
 
@@ -355,7 +357,7 @@ export default function DashboardHome() {
                         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
                             <BarChart data={stats.ageData} margin={{top:5, right:5, left:-25, bottom:0}}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                <XAxis dataKey="name" stroke="#666" fontSize={9} tickLine={false} axisLine={false} />
+                                <XAxis dataKey="name" stroke="#666" fontSize={9} tickLine={false} axisLine={false} interval={0} />
                                 <YAxis stroke="#666" fontSize={9} tickLine={false} axisLine={false} />
                                 <Tooltip contentStyle={{ backgroundColor: '#222', border: '1px solid #444', fontSize:'0.65rem' }} itemStyle={{ color: '#fff' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                                 <Bar dataKey="jumlah" radius={[3, 3, 0, 0]} barSize={20}>

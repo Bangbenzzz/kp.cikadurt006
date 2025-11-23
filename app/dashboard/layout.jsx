@@ -7,6 +7,9 @@ import ReactDOM from "react-dom";
 import { auth } from "@/lib/firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
+// --- IMPORT ICON MODERN (LUCIDE) ---
+import { LuLayoutDashboard, LuUsers, LuWallet } from "react-icons/lu";
+
 // Konfigurasi agar halaman tidak nyangkut cache (Fresh)
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -103,10 +106,11 @@ export default function DashboardLayout({ children }) {
     }
   }, [pathname, isWargaUnlocked]);
 
+  // --- MENU DENGAN ICON MODERN ---
   const menu = [
-    { name: "Beranda", href: "/dashboard", icon: "🏠", protected: false },
-    { name: "Data Warga", href: "/dashboard/warga", icon: "👥", protected: true },
-    { name: "Keuangan RT", href: "/dashboard/keuangan", icon: "💰", protected: false },
+    { name: "Beranda", href: "/dashboard", icon: <LuLayoutDashboard />, protected: false },
+    { name: "Data Warga", href: "/dashboard/warga", icon: <LuUsers />, protected: true },
+    { name: "Keuangan RT", href: "/dashboard/keuangan", icon: <LuWallet />, protected: false },
   ];
 
   const handleLogout = async () => { 
@@ -176,7 +180,10 @@ export default function DashboardLayout({ children }) {
             onMouseEnter={(e) => (pathname !== item.href && !isMobileLink) && (e.target.style.color = "#fff")}
             onMouseLeave={(e) => (pathname !== item.href && !isMobileLink) && (e.target.style.color = "#888")}
         > 
-            {isMobileLink && <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>} 
+            {/* RENDER ICON COMPONENT */}
+            <span style={{ fontSize: isMobileLink ? "1.2rem" : "1.1rem", display: 'flex' }}>
+                {item.icon}
+            </span> 
             <span>{item.name}</span> 
         </Link>
     );
@@ -186,7 +193,6 @@ export default function DashboardLayout({ children }) {
 
   return (
     <>
-      {/* Style untuk Animasi Pulse Dot Hijau */}
       <style jsx global>{`
           @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); } } 
           * { box-sizing: border-box; }
@@ -194,13 +200,11 @@ export default function DashboardLayout({ children }) {
       
       <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #0a0a0a 0%, #000 100%)", color: "#e0e0e0" }}>
         
-        {/* HEADER ASLI YANG ANDA SUKA */}
         <header style={{ background: "rgba(15,15,15,0.8)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255,255,255,0.1)", padding: isMobile ? "0 1rem" : "0 2rem", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                 {isMobile ? (
                     <button onClick={() => setMobileSidebarOpen(true)} style={{ background: 'none', border: 'none', color: '#00aaff', fontSize: '1.5rem', cursor: 'pointer' }}>☰</button>
                 ) : (
-                    // JUDUL KEMBALI KE AWAL
                     <h2 style={{ fontSize: "1.3rem", fontWeight: "600", background: "linear-gradient(to right, #00eaff, #0077ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Dashboard</h2>
                 )}
                 {!isMobile && (
@@ -211,7 +215,6 @@ export default function DashboardLayout({ children }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: 'wrap' }}>
-                {/* DOT KELAP KELIP KEMBALI */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ width: '10px', height: '10px', background: '#00ff88', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
                     <span style={{ fontWeight: '500', color: '#ccc', fontSize: isMobile ? '0.8rem' : '1rem' }}>
@@ -222,7 +225,6 @@ export default function DashboardLayout({ children }) {
             </div>
         </header>
 
-        {/* Sidebar Mobile */}
         {isMobile && (
             <aside style={{ width: "250px", background: "rgba(15,15,15,0.95)", backdropFilter: "blur(10px)", padding: "2rem 1rem", display: "flex", flexDirection: "column", justifyContent: "space-between", transition: "transform 0.3s ease", position: "fixed", left: 0, top: 0, height: "100vh", transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-100%)", zIndex: 110 }}>
                 <div>
