@@ -5,15 +5,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from 'exceljs';
 import { db, collection, onSnapshot, doc, setDoc, deleteDoc } from '@/lib/firebase';
+import { LuChevronDown, LuCheck } from "react-icons/lu"; // Pastikan install react-icons jika belum (npm install react-icons) atau ganti dengan text "V"
 
 // --- KONFIGURASI SPREADSHEET ---
-// Pastikan URL ini adalah URL TERBARU dari deployment Google Apps Script Anda
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbytxfoLgfimf69ICLawjpJOr2cwKG1xhCDDOAW2AyQLneCvtMrml8KUcRx6LKS83LJh8w/exec"; 
 // -------------------------------
 
 // --- STYLE (TIDAK DIUBAH) ---
 const inputStyle = { width: '100%', padding: '0.65rem', fontSize: '0.85rem', background: 'rgba(0,0,0,0.6)', border: '1px solid #333', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'border 0.2s', boxSizing: 'border-box' };
-const selectCompactStyle = { ...inputStyle, width: 'auto', minWidth: '180px', maxWidth: '100%', padding: '0.4rem 2rem 0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer' };
+// selectCompactStyle dihapus karena diganti custom dropdown
 
 const buttonStyle = {
     save: { padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'linear-gradient(145deg, #0a84ff, #0066cc)', border: '1px solid #0a84ff', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
@@ -68,6 +68,9 @@ export default function WargaPage() {
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' }); 
   const [showExportMenu, setShowExportMenu] = useState(false);
   
+  // State baru untuk Custom Dropdown
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
   const showToast = useCallback((message, type = 'success') => { setToast({ isVisible: true, message, type }); }, []); 
   useEffect(() => { if (toast.isVisible) { const timer = setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000); return () => clearTimeout(timer); } }, [toast.isVisible]);
 
@@ -95,75 +98,44 @@ export default function WargaPage() {
   const syncToSheet = async (data) => {
       if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("PASTE_URL")) return; 
       try {
-          // SIAPKAN PAYLOAD YANG SESUAI DENGAN KODE GS
           const spreadsheetData = {
               ...data,
-              // Pastikan Gender jadi Laki-laki/Perempuan
-              jenis_kelamin: data.jenis_kelamin === 'L' ? 'Laki-laki' : (data.jenis_kelamin === 'P' ? 'Perempuan' : data.jenis_kelamin),
-              // Pastikan Action dikirim (save/delete)
+              jenis_kelamin: data.jenis_kelamin === 'Laki- Laki' ? 'Laki-laki' : (data.jenis_kelamin === 'Perempuan' ? 'Perempuan' : data.jenis_kelamin),
               action: data.action || 'save'
           };
-
-          await fetch(GOOGLE_SCRIPT_URL, {
-              method: "POST",
-              mode: "no-cors", 
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(spreadsheetData) 
-          });
+          await fetch(GOOGLE_SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(spreadsheetData) });
           console.log("Sync to Sheet sent.", data.action);
-      } catch (e) {
-          console.error("Gagal backup ke Sheet", e);
-      }
+      } catch (e) { console.error("Gagal backup ke Sheet", e); }
   };
 
-  // --- HANDLE SAVE (INSERT / UPDATE) ---
   const handleSave = async (data) => {
       if (!data.nik) return showToast("NIK Wajib diisi", "error");
       const docId = String(data.nik);
       try {
-          // 1. Simpan ke Firestore (Update/Insert otomatis oleh Firebase)
           await setDoc(doc(db, "warga", docId), data);
-          
-          // 2. Sinkron ke Spreadsheet (Update/Insert otomatis oleh Google Script)
-          syncToSheet(data); // action default = 'save'
-          
+          syncToSheet(data); 
           showToast("Data tersimpan", 'success');
           setModalState({ type: null, data: null });
       } catch(e) { showToast("Gagal simpan", 'error'); }
   };
 
-  // --- HANDLE ADD FAMILY (BATCH) ---
   const handleAddFamily = async (dataFamily) => {
       try {
-          const batchPromises = dataFamily.map(person => {
-              syncToSheet(person); // Kirim per orang ke Spreadsheet
-              return setDoc(doc(db, "warga", String(person.nik)), person);
-          });
+          const batchPromises = dataFamily.map(person => { syncToSheet(person); return setDoc(doc(db, "warga", String(person.nik)), person); });
           await Promise.all(batchPromises);
           showToast("Keluarga ditambahkan", 'success');
           setModalState({ type: null, data: null });
       } catch(e) { showToast("Gagal simpan keluarga", 'error'); }
   };
 
-  // --- HANDLE DELETE (HAPUS) ---
   const handleDelete = async () => {
       if(modalState.data?.id) {
           try {
-              // 1. HAPUS DI SPREADSHEET (Kirim sinyal 'delete')
-              const dataToDelete = { 
-                  ...modalState.data, 
-                  action: 'delete' // KUNCI AGAR SCRIPT GS TAHU INI HAPUS
-              };
+              const dataToDelete = { ...modalState.data, action: 'delete' };
               syncToSheet(dataToDelete);
-
-              // 2. HAPUS DI FIRESTORE
               await deleteDoc(doc(db, "warga", modalState.data.id));
-              
               showToast("Data berhasil dihapus", 'success');
-          } catch(e) { 
-              console.error(e);
-              showToast("Gagal hapus", 'error'); 
-          }
+          } catch(e) { console.error(e); showToast("Gagal hapus", 'error'); }
       }
       setModalState({ type: null, data: null });
   };
@@ -192,8 +164,7 @@ export default function WargaPage() {
       const logo = new Image(); logo.src = '/logo-rt.png'; 
       logo.onload = () => {
           const doc = new jsPDF('l', 'mm', 'a3');
-          const pageWidth = doc.internal.pageSize.width;
-          const pageHeight = doc.internal.pageSize.height;
+          const pageWidth = doc.internal.pageSize.width; const pageHeight = doc.internal.pageSize.height;
           const tableColumn = [ "No", "No KK", "NIK", "Nama Lengkap", "Hub Keluarga", "Alamat", "RT", "RW", "Jenis Kelamin", "Agama", "Gol", "Tempat Lahir", "Tgl Lahir", "Usia", "Pendidikan", "Pekerjaan" ];
           const tableRows = filteredWarga.map((w, index) => [ index + 1, w.no_kk, w.nik, w.nama + (w.is_dead ? " (Alm)" : ""), w.status, w.alamat, w.rt, w.rw, w.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan', w.agama, w.gol_darah, w.tempat_lahir, formatTableDate(w.tgl_lahir), getAge(w.tgl_lahir), w.pendidikan, w.pekerjaan ]);
           const filterText = ageFilter ? `Kategori: ${ageFilter}` : 'Kategori: Semua Warga';
@@ -246,8 +217,30 @@ export default function WargaPage() {
     const buffer = await workbook.xlsx.writeBuffer(); const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Data_Warga_Cikadu_${new Date().toISOString().slice(0,10)}.xlsx`; a.click(); window.URL.revokeObjectURL(url);
   };
 
+  // Helper untuk render opsi dropdown
+  const renderFilterLabel = () => {
+      if (!ageFilter) return `Semua Warga (${statistics.hidup})`;
+      if (['Kepala Keluarga', 'Istri', 'Anak'].includes(ageFilter)) return `${ageFilter}`;
+      if (['Balita', 'Anak', 'Remaja', 'Dewasa', 'Pra-Lansia', 'Lansia'].includes(ageFilter)) return `${ageFilter} (${statistics.usia[ageFilter]})`;
+      if (ageFilter === 'Yatim') return `Yatim (${statistics.yatim})`;
+      if (ageFilter === 'Duafa') return `Duafa (${statistics.duafa})`;
+      if (ageFilter === 'Meninggal') return `Meninggal (${statistics.meninggal})`;
+      return ageFilter;
+  };
+
   return (
     <div>
+        <style>{`
+            /* Styling Custom Scrollbar Elegan */
+            .custom-scroll::-webkit-scrollbar { width: 5px; }
+            .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+            .custom-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+            .custom-scroll::-webkit-scrollbar-thumb:hover { background: #00eaff; }
+            
+            /* Efek Hover untuk item Dropdown */
+            .dropdown-item:hover { background: rgba(0, 234, 255, 0.15) !important; color: #fff !important; }
+        `}</style>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1rem' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                 <input type="text" placeholder="Cari Nama / NIK / KK..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} style={{...inputStyle, width: '100%', maxWidth:'300px'}} />
@@ -259,31 +252,86 @@ export default function WargaPage() {
                     </div>
                 </div>
              </div>
-             <div style={{ padding: '1rem', background: 'rgba(0, 170, 255, 0.03)', border: '1px solid rgba(0, 170, 255, 0.1)', borderRadius: '10px' }}>
+             
+             {/* AREA FILTER YANG DIUBAH MENJADI CUSTOM DROPDOWN */}
+             <div style={{ padding: '1rem', background: 'rgba(0, 170, 255, 0.03)', border: '1px solid rgba(0, 170, 255, 0.1)', borderRadius: '10px', position:'relative' }}>
                <label style={{ color: '#00eaff', marginBottom: '0.5rem', display: 'block', fontWeight: '600', fontSize: '0.85rem' }}>Filter Statistik (Pemerintah):</label>
-               <select value={ageFilter || ""} onChange={(e) => setAgeFilter(e.target.value === "" ? null : e.target.value)} style={selectCompactStyle}> 
-                   <option value="">Semua Warga ({statistics.hidup})</option> 
-                   <optgroup label="Status Keluarga"> 
-                       <option value="Kepala Keluarga">Kepala Keluarga ({statistics.kepala_keluarga})</option> 
-                       <option value="Istri">Istri ({statistics.istri})</option> 
-                       <option value="Anak">Anak ({statistics.anak})</option> 
-                   </optgroup> 
-                   <optgroup label="Berdasarkan Usia (Depkes RI)"> 
-                       <option value="Balita">Balita (0-5 Thn) ({statistics.usia['Balita']})</option> 
-                       <option value="Anak">Anak (6-11 Thn) ({statistics.usia['Anak']})</option> 
-                       <option value="Remaja">Remaja (12-25 Thn) ({statistics.usia['Remaja']})</option> 
-                       <option value="Dewasa">Dewasa (26-45 Thn) ({statistics.usia['Dewasa']})</option> 
-                       <option value="Pra-Lansia">Pra-Lansia (46-59 Thn) ({statistics.usia['Pra-Lansia']})</option> 
-                       <option value="Lansia">Lansia (60+ Thn) ({statistics.usia['Lansia']})</option> 
-                   </optgroup> 
-                   <optgroup label="Kategori Sosial"> 
-                       <option value="Yatim">Yatim ({statistics.yatim})</option> 
-                       <option value="Duafa">Duafa ({statistics.duafa})</option> 
-                   </optgroup> 
-                   <optgroup label="Lainnya"> 
-                       <option value="Meninggal">Meninggal ({statistics.meninggal})</option> 
-                   </optgroup> 
-               </select>
+               
+               {/* Trigger Dropdown */}
+               <div 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  style={{
+                      width: 'auto', minWidth: '220px', maxWidth: '100%', padding: '0.6rem 1rem', fontSize: '0.85rem',
+                      background: 'rgba(20, 20, 20, 0.8)', border: `1px solid ${isFilterOpen ? '#00eaff' : '#444'}`, 
+                      color: ageFilter ? '#fff' : '#ccc', borderRadius: '8px', cursor: 'pointer', 
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      boxShadow: isFilterOpen ? '0 0 10px rgba(0, 234, 255, 0.2)' : 'none',
+                      transition: 'all 0.3s ease'
+                  }}
+               >
+                  <span style={{ fontWeight: '500' }}>{renderFilterLabel()}</span>
+                  <span style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', color: '#00eaff' }}>▼</span>
+               </div>
+
+               {/* Dropdown List Body */}
+               {isFilterOpen && (
+                   <>
+                    {/* Backdrop transparan untuk menutup jika klik diluar */}
+                    <div style={{position:'fixed', inset:0, zIndex:90}} onClick={() => setIsFilterOpen(false)}/>
+                    
+                    <div className="custom-scroll" style={{
+                        position: 'absolute', top: 'calc(100% + 5px)', left: '1rem', right: 'auto', minWidth: '250px',
+                        background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.8)', zIndex: 95, maxHeight: '300px', overflowY: 'auto',
+                        backdropFilter: 'blur(10px)', padding: '0.5rem 0'
+                    }}>
+                        <div 
+                            onClick={() => { setAgeFilter(null); setIsFilterOpen(false); }} 
+                            className="dropdown-item"
+                            style={{ padding: '0.8rem 1rem', cursor: 'pointer', color: !ageFilter ? '#00eaff' : '#ccc', fontSize: '0.85rem', borderBottom:'1px solid rgba(255,255,255,0.05)', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                        >
+                            <span>Semua Warga ({statistics.hidup})</span>
+                            {!ageFilter && <span style={{color:'#00eaff'}}>✓</span>}
+                        </div>
+
+                        {/* Group: Status Keluarga */}
+                        <div style={{ padding: '0.6rem 1rem 0.2rem', color: '#666', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1px' }}>Status Keluarga</div>
+                        {[ 
+                            {l: 'Kepala Keluarga', v: statistics.kepala_keluarga}, {l: 'Istri', v: statistics.istri}, {l: 'Anak', v: statistics.anak} 
+                        ].map((item) => (
+                            <div key={item.l} onClick={() => { setAgeFilter(item.l); setIsFilterOpen(false); }} className="dropdown-item" style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: ageFilter===item.l?'#00eaff':'#ccc', fontSize: '0.85rem', display:'flex', justifyContent:'space-between' }}>
+                                {item.l} <span style={{opacity:0.5, fontSize:'0.75rem', background:'rgba(255,255,255,0.1)', padding:'0 6px', borderRadius:'4px'}}>{item.v}</span>
+                            </div>
+                        ))}
+
+                        {/* Group: Usia */}
+                        <div style={{ padding: '0.8rem 1rem 0.2rem', color: '#666', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1px' }}>Berdasarkan Usia</div>
+                        {[
+                            {l: 'Balita', d: '0-5 Thn', v: statistics.usia['Balita']},
+                            {l: 'Anak', d: '6-11 Thn', v: statistics.usia['Anak']},
+                            {l: 'Remaja', d: '12-25 Thn', v: statistics.usia['Remaja']},
+                            {l: 'Dewasa', d: '26-45 Thn', v: statistics.usia['Dewasa']},
+                            {l: 'Pra-Lansia', d: '46-59 Thn', v: statistics.usia['Pra-Lansia']},
+                            {l: 'Lansia', d: '60+ Thn', v: statistics.usia['Lansia']},
+                        ].map((item) => (
+                            <div key={item.l} onClick={() => { setAgeFilter(item.l); setIsFilterOpen(false); }} className="dropdown-item" style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: ageFilter===item.l?'#00eaff':'#ccc', fontSize: '0.85rem', display:'flex', justifyContent:'space-between' }}>
+                                <span>{item.l} <span style={{fontSize:'0.7rem', color:'#666'}}>({item.d})</span></span> 
+                                <span style={{opacity:0.5, fontSize:'0.75rem', background:'rgba(255,255,255,0.1)', padding:'0 6px', borderRadius:'4px'}}>{item.v}</span>
+                            </div>
+                        ))}
+
+                        {/* Group: Sosial & Lainnya */}
+                        <div style={{ padding: '0.8rem 1rem 0.2rem', color: '#666', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1px' }}>Sosial & Lainnya</div>
+                        {[ 
+                            {l: 'Yatim', v: statistics.yatim, col: '#e0e0e0'}, {l: 'Duafa', v: statistics.duafa, col: '#e0e0e0'}, {l: 'Meninggal', v: statistics.meninggal, col: '#ff4d4f'} 
+                        ].map((item) => (
+                            <div key={item.l} onClick={() => { setAgeFilter(item.l); setIsFilterOpen(false); }} className="dropdown-item" style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: ageFilter===item.l?'#00eaff':item.col, fontSize: '0.85rem', display:'flex', justifyContent:'space-between' }}>
+                                {item.l} <span style={{opacity:0.5, fontSize:'0.75rem', background:'rgba(255,255,255,0.1)', padding:'0 6px', borderRadius:'4px'}}>{item.v}</span>
+                            </div>
+                        ))}
+                    </div>
+                   </>
+               )}
             </div>
         </div>
 

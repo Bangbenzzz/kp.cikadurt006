@@ -43,7 +43,7 @@ const getAgeCategory = (age) => {
     return "Lansia";
 };
 
-const COLORS_GENDER = ['#0ea5e9', '#f43f5e']; 
+const COLORS_GENDER = ['#0ea5e9', '#f43f5e']; // Biru (L), Pink (P)
 const COLORS_AGE = ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#10b981', '#ef4444'];
 const COLORS_JOB = ['#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6']; 
 
@@ -85,6 +85,8 @@ export default function DashboardHome() {
       
       const l = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'L' || jk === 'LAKI-LAKI'; }).length;
       const p = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'P' || jk === 'PEREMPUAN' || jk === 'WANITA'; }).length;
+      
+      // Data untuk chart Gender
       const genderData = [ { name: 'Laki-Laki', value: l }, { name: 'Perempuan', value: p } ];
       
       const catCounts = { "Balita": 0, "Anak": 0, "Remaja": 0, "Dewasa": 0, "Lansia": 0, "Meninggal": 0 };
@@ -115,6 +117,7 @@ export default function DashboardHome() {
           return age >= 15 && age <= 55;
       }).length;
 
+      // (Logic Pekerjaan tetap ada jika dibutuhkan nanti, tapi tidak dirender di chart kecil)
       const jobCounts = {};
       active.forEach(w => {
           let job = (w.pekerjaan || "Lainnya").toUpperCase();
@@ -123,7 +126,6 @@ export default function DashboardHome() {
           else if(job.includes("PELAJAR")) job = "PELAJAR";
           else if(job.includes("BELUM") || job.includes("TIDAK")) job = "TDK KERJA";
           else job = "LAINNYA";
-          
           jobCounts[job] = (jobCounts[job] || 0) + 1;
       });
       const jobData = Object.keys(jobCounts)
@@ -162,7 +164,7 @@ export default function DashboardHome() {
         }}>
             
             {/* BARIS 1 */}
-            <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="Jiwa" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
+            <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
             <CardStat icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" bg="rgba(0, 255, 136, 0.1)"/>
             
             {/* BARIS 2 (SALDO) */}
@@ -170,7 +172,7 @@ export default function DashboardHome() {
                 icon={<LuWallet />} 
                 label="Saldo Kas RT" 
                 value={`Rp ${stats.totalSaldo.toLocaleString('id-ID')}`} 
-                sub="Update Terkini" 
+                sub="UPDATE TERKINI" 
                 color="#f59e0b" 
                 bg="rgba(245, 158, 11, 0.1)"
                 isCurrency={true}
@@ -180,41 +182,45 @@ export default function DashboardHome() {
             {/* BARIS 3 */}
             <CardStat 
                 icon={<LuZap />} 
-                label="Produktif" 
+                label="Usia Produktif" 
                 value={`${stats.wargaProduktif}`} 
-                sub="15-55 Thn" 
+                sub="15-55 TAHUN" 
                 color="#8b5cf6" 
                 bg="rgba(139, 92, 246, 0.1)"
             />
 
-            {/* MINI CHART PEKERJAAN */}
+            {/* --- MINI CHART GENDER (MENGGANTIKAN PEKERJAAN) --- */}
             <div style={{ 
-                background: '#161616', border: `1px solid rgba(6, 182, 212, 0.3)`, borderRadius: '10px', 
+                background: '#161616', border: `1px solid rgba(14, 165, 233, 0.3)`, borderRadius: '10px', 
                 padding: '0.5rem', position: 'relative', overflow: 'hidden', 
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
             }}>
                 <div style={{ display:'flex', gap:'4px', alignItems:'center', marginBottom:'-5px', zIndex:2 }}>
-                    {/* UKURAN ICON & TEXT CHART DIPERBESAR SEDIKIT */}
-                    <LuBriefcase style={{color:'#06b6d4', fontSize:'1rem'}} /> 
-                    <span style={{fontSize:'0.7rem', color:'#888', fontWeight:'700'}}>PEKERJAAN</span>
+                    <LuUsers style={{color:'#0ea5e9', fontSize:'1rem'}} /> 
+                    <span style={{fontSize:'0.7rem', color:'#888', fontWeight:'700'}}>GENDER</span>
                 </div>
                 
                 {isClient && (
                     <div style={{ width: '100%', height: '70px' }}>
                         <ResponsiveContainer>
                             <PieChart>
-                                <Pie data={stats.jobData} cx="50%" cy="50%" innerRadius={18} outerRadius={30} paddingAngle={2} dataKey="value" stroke="none">
-                                    {stats.jobData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS_JOB[index % COLORS_JOB.length]} /> ))}
+                                {/* Gunakan stats.genderData */}
+                                <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={18} outerRadius={30} paddingAngle={2} dataKey="value" stroke="none">
+                                    {/* Gunakan COLORS_GENDER */}
+                                    {stats.genderData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS_GENDER[index % COLORS_GENDER.length]} /> ))}
                                 </Pie>
                                 <Tooltip contentStyle={{ backgroundColor: '#111', border: 'none', fontSize:'0.6rem', padding:'4px' }} itemStyle={{padding:0}} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                 )}
-                <div style={{ display:'flex', gap:'4px', fontSize:'0.65rem', color:'#bbb', flexWrap:'wrap', justifyContent:'center', marginTop:'-5px' }}>
-                     {stats.jobData.slice(0,2).map((j,i) => (
-                        <span key={i} style={{color: COLORS_JOB[i]}}>• {j.name}</span>
+                <div style={{ display:'flex', gap:'8px', fontSize:'0.65rem', color:'#bbb', flexWrap:'wrap', justifyContent:'center', marginTop:'-5px' }}>
+                     {/* Tampilkan Laki-laki (L) dan Perempuan (P) */}
+                     {stats.genderData.map((g, i) => (
+                        <span key={i} style={{color: COLORS_GENDER[i]}}>
+                            • {g.name === 'Laki-Laki' ? 'L' : 'P'} ({g.value})
+                        </span>
                      ))}
                 </div>
             </div>
