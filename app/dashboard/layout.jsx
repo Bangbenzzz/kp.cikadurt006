@@ -3,14 +3,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-// Import Auth Firebase yang benar
 import { auth } from "@/lib/firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
-
-// --- IMPORT ICON MODERN (LUCIDE) ---
 import { LuLayoutDashboard, LuUsers, LuWallet } from "react-icons/lu";
 
-// Konfigurasi agar halaman tidak nyangkut cache (Fresh)
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
@@ -99,18 +95,30 @@ export default function DashboardLayout({ children }) {
     }
   }, [router]);
 
+  // --- LOGIC PENGECEKAN PASSWORD (DIPERBAIKI) ---
   useEffect(() => {
-    // Kunci kembali jika pindah halaman selain /dashboard/warga
-    if (pathname !== '/dashboard/warga' && isWargaUnlocked) {
-      setIsWargaUnlocked(false);
+    // 1. Jika user berada di halaman warga
+    if (pathname === '/dashboard/warga') {
+        // Jika belum unlock, buka modal.
+        // Cek !showWargaPasswordModal agar tidak membuka modal dobel jika sudah terbuka
+        if (!isWargaUnlocked && !showWargaPasswordModal) {
+            setShowWargaPasswordModal(true);
+        }
+    } 
+    // 2. Jika user TIDAK berada di halaman warga (misal pindah ke Beranda)
+    else {
+        // Kunci kembali secara otomatis!
+        if (isWargaUnlocked) {
+            setIsWargaUnlocked(false);
+            setShowWargaPasswordModal(false);
+        }
     }
-  }, [pathname, isWargaUnlocked]);
+  }, [pathname, isWargaUnlocked]); // Hapus dependensi lain yang tidak perlu
 
-  // --- MENU DENGAN ICON MODERN ---
   const menu = [
-    { name: "Beranda", href: "/dashboard", icon: <LuLayoutDashboard />, protected: false },
-    { name: "Data Warga", href: "/dashboard/warga", icon: <LuUsers />, protected: true },
-    { name: "Keuangan RT", href: "/dashboard/keuangan", icon: <LuWallet />, protected: false },
+    { name: "Beranda", href: "/dashboard", icon: <LuLayoutDashboard /> },
+    { name: "Data Warga", href: "/dashboard/warga", icon: <LuUsers /> },
+    { name: "Keuangan RT", href: "/dashboard/keuangan", icon: <LuWallet /> },
   ];
 
   const handleLogout = async () => { 
@@ -122,13 +130,13 @@ export default function DashboardLayout({ children }) {
       }
   };
   
-  const handleWargaLinkClick = (e) => {
-    if (pathname === '/dashboard/warga') return;
-    if (!isWargaUnlocked) { 
-        e.preventDefault(); 
-        setShowWargaPasswordModal(true); 
-    }
-    if (isMobile) { setMobileSidebarOpen(false); }
+  // --- HANDLE LINK CLICK DISEDERHANAKAN ---
+  // Tidak ada lagi e.preventDefault() atau logika buka modal di sini.
+  // Kita biarkan user pindah halaman dulu, baru useEffect di atas yang bekerja.
+  const handleLinkClick = () => {
+      if (isMobile) { 
+          setMobileSidebarOpen(false); 
+      }
   };
 
   const verifyWargaPassword = async (password) => {
@@ -140,7 +148,7 @@ export default function DashboardLayout({ children }) {
         if (data.success) { 
             setIsWargaUnlocked(true); 
             setShowWargaPasswordModal(false); 
-            router.push('/dashboard/warga'); 
+            // Hapus router.push di sini karena user SUDAH berada di halaman tersebut (hanya tertutup overlay)
         } else { 
             setWargaPasswordError(data.error || 'Password salah. Silakan coba lagi.'); 
         }
@@ -151,11 +159,15 @@ export default function DashboardLayout({ children }) {
     }
   };
 
+  const handleCancelPassword = () => {
+      setShowWargaPasswordModal(false);
+      // Jika user menekan batal saat di halaman warga, lempar balik ke dashboard
+      if (pathname === '/dashboard/warga') {
+          router.push('/dashboard');
+      }
+  };
+
   const NavLink = ({ item, isMobileLink = false }) => {
-    const clickHandler = item.protected 
-        ? handleWargaLinkClick 
-        : (isMobile ? () => setMobileSidebarOpen(false) : undefined);
-        
     const linkStyle = isMobileLink 
         ? { 
             padding: "0.75rem", 
@@ -175,12 +187,11 @@ export default function DashboardLayout({ children }) {
     return (
         <Link 
             href={item.href} 
-            onClick={clickHandler}
+            onClick={handleLinkClick} // Panggil fungsi sederhana
             style={linkStyle}
             onMouseEnter={(e) => (pathname !== item.href && !isMobileLink) && (e.target.style.color = "#fff")}
             onMouseLeave={(e) => (pathname !== item.href && !isMobileLink) && (e.target.style.color = "#888")}
         > 
-            {/* RENDER ICON COMPONENT */}
             <span style={{ fontSize: isMobileLink ? "1.2rem" : "1.1rem", display: 'flex' }}>
                 {item.icon}
             </span> 
@@ -190,6 +201,10 @@ export default function DashboardLayout({ children }) {
   };
 
   if (authLoading) return <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#000', color:'#fff'}}>Memuat Sistem...</div>;
+
+  // Tentukan apakah konten boleh ditampilkan
+  const isWargaPage = pathname === '/dashboard/warga';
+  const showContent = !isWargaPage || isWargaUnlocked;
 
   return (
     <>
@@ -243,11 +258,21 @@ export default function DashboardLayout({ children }) {
         
         <main style={{ padding: isMobile ? "1rem" : "2rem", width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
             <div style={{ background: "rgba(20,20,20,0.5)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", padding: isMobile ? "1.5rem" : "2rem", boxShadow: "0 0 30px rgba(0,255,255,0.05)" }}>
-                {children}
+                {/* 
+                   Konten dirender HANYA jika showContent = true.
+                   Jika tidak (artinya di halaman warga tapi belum masukkan password),
+                   tampilkan indikator terkunci.
+                */}
+                {showContent ? children : (
+                    <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'300px', color:'#555', flexDirection:'column', gap:'1rem' }}>
+                        <div style={{ fontSize: '3rem' }}>🔒</div>
+                        <div>Akses Terkunci. Masukkan password.</div>
+                    </div>
+                )}
             </div>
         </main>
         
-        <Modal isOpen={showWargaPasswordModal} onClose={() => setShowWargaPasswordModal(false)} maxWidth="450px"><PasswordPromptModal onVerify={verifyWargaPassword} onCancel={() => setShowWargaPasswordModal(false)} error={wargaPasswordError} isLoading={isVerifying} /></Modal>
+        <Modal isOpen={showWargaPasswordModal} onClose={handleCancelPassword} maxWidth="450px"><PasswordPromptModal onVerify={verifyWargaPassword} onCancel={handleCancelPassword} error={wargaPasswordError} isLoading={isVerifying} /></Modal>
         <Modal isOpen={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)} maxWidth="400px"><ConfirmationModal onConfirm={handleLogout} onCancel={() => setShowLogoutConfirm(false)} title="Konfirmasi Logout" message="Apakah Anda yakin ingin keluar dari sesi ini?" confirmText="Ya, Logout" confirmStyle={{ padding: '0.75rem 1.5rem', background: 'linear-gradient(145deg, #ff4d4f, #b30021)', border: '1px solid #ff4d4f', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer' }} /></Modal>
       </div>
     </>
