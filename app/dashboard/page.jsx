@@ -143,8 +143,8 @@ export default function DashboardHome() {
         {/* --- HEADER --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
             <div>
-                <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', ...gradientTextStyle }}>Kp. Cikadu RT. 06</h1>
-                <p style={{ margin: 0, fontSize: '0.70rem', color: '#888' }}>Ketua RT. 06 - Dedi Suryadi</p>
+                <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', ...gradientTextStyle }}>Kp. Cikadu RT. 02</h1>
+                <p style={{ margin: 0, fontSize: '0.70rem', color: '#888' }}>Ketua RT. 02 - Dedi Suryadi</p>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                 <div style={{ fontSize: '1rem', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px', ...gradientTextStyle }}>

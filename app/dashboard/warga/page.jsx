@@ -55,7 +55,7 @@ export default function WargaPage() {
             return { 
                 id: doc.id,
                 ...d, 
-                nama: d.nama || "(Tanpa Nama)", nik: String(d.nik || "-"), no_kk: String(d.no_kk || "-"), alamat: d.alamat || "Kp. Cikadu", rt: String(d.rt || "06"), rw: String(d.rw || "19"), jenis_kelamin: d.jenis_kelamin || "L", gol_darah: d.gol_darah || "-", tgl_lahir: d.tgl_lahir || "", tempat_lahir: d.tempat_lahir || "", pekerjaan: d.pekerjaan || "-", status: d.status || "Warga", agama: d.agama || "Islam", pendidikan: d.pendidikan || "-"
+                nama: d.nama || "(Tanpa Nama)", nik: String(d.nik || "-"), no_kk: String(d.no_kk || "-"), alamat: d.alamat || "Kp. Cikadu", rt: String(d.rt || "02"), rw: String(d.rw || "19"), jenis_kelamin: d.jenis_kelamin || "L", gol_darah: d.gol_darah || "-", tgl_lahir: d.tgl_lahir || "", tempat_lahir: d.tempat_lahir || "", pekerjaan: d.pekerjaan || "-", status: d.status || "Warga", agama: d.agama || "Islam", pendidikan: d.pendidikan || "-"
             };
         });
         const rolePriority = { "Kepala Keluarga": 1, "Istri": 2, "Anak": 3 };
@@ -191,7 +191,7 @@ const handleAddFamily = async (dataFamily) => {
   const startIndex = (currentPage - 1) * dataPerPage;
   const currentWarga = filteredWarga.slice(startIndex, startIndex + dataPerPage);
   const totalPages = Math.ceil(filteredWarga.length / dataPerPage);
-  const emptyWarga = { id: null, nama: "", nik: "", no_kk: "", nama_kk: "", rt: "06", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false };
+  const emptyWarga = { id: null, nama: "", nik: "", no_kk: "", nama_kk: "", rt: "02", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false };
   const renderFilterLabel = () => { if (!ageFilter) return `Semua Warga (${statistics.hidup})`; if (['Kepala Keluarga', 'Istri', 'Anak'].includes(ageFilter)) return `${ageFilter}`; if (['Balita', 'Anak', 'Remaja', 'Dewasa', 'Pra-Lansia', 'Lansia'].includes(ageFilter)) return `${ageFilter} (${statistics.usia[ageFilter]})`; if (ageFilter === 'Yatim') return `Yatim (${statistics.yatim})`; if (ageFilter === 'Duafa') return `Duafa (${statistics.duafa})`; if (ageFilter === 'Meninggal') return `Meninggal (${statistics.meninggal})`; return ageFilter; };
 
 
@@ -245,7 +245,7 @@ const handleAddFamily = async (dataFamily) => {
             didParseCell: (data) => { if (data.section === 'body') { const row = filteredWarga[data.row.index]; if (row && row.is_dead) { data.cell.styles.textColor = [255, 77, 79]; data.cell.styles.fontStyle = 'bold'; } } },
             didDrawPage: (data) => {
                 doc.addImage(logo, 'PNG', 20, 10, 25, 25);
-                doc.setFont("times", "bold"); doc.setFontSize(20); doc.text("KETUA RT. 06 RW. 19", pageWidth / 2, 16, { align: 'center' });
+                doc.setFont("times", "bold"); doc.setFontSize(20); doc.text("KETUA RT. 02 RW. 19", pageWidth / 2, 16, { align: 'center' });
                 doc.setFontSize(20); doc.text("DESA DAYEUH", pageWidth / 2, 24, { align: 'center' });
                 doc.setFontSize(20); doc.text("KECAMATAN CILEUNGSI KABUPATEN BOGOR", pageWidth / 2, 32, { align: 'center' });
                 doc.setFont("times", "normal"); doc.setFontSize(11); doc.text("Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281", pageWidth / 2, 39, { align: 'center' });
@@ -283,7 +283,7 @@ const handleAddFamily = async (dataFamily) => {
     
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Data Warga');
-    const kopRows = [ ["KETUA RT. 06 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"], ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"] ];
+    const kopRows = [ ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"], ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"] ];
     kopRows.forEach((row, index) => { const currentRow = worksheet.getRow(index + 1); currentRow.values = [row[0]]; worksheet.mergeCells(`A${index + 1}:R${index + 1}`); currentRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' }; if (index === 0) currentRow.getCell(1).font = { bold: true, size: 16, name: 'Times New Roman' }; else if (index === 1) currentRow.getCell(1).font = { bold: true, size: 16, name: 'Times New Roman' }; else if (index === 2) currentRow.getCell(1).font = { bold: true, size: 16, name: 'Times New Roman' }; else currentRow.getCell(1).font = { size: 10, name: 'Times New Roman' }; });
     worksheet.getRow(5).values = [""]; worksheet.mergeCells('A5:R5'); worksheet.getCell('A5').border = { bottom: { style: 'medium' } };
     worksheet.getRow(6).values = [filterText, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", `Export: ${exportTime}`]; worksheet.mergeCells('A6:E6'); worksheet.mergeCells('R6:R6'); worksheet.getCell('A6').font = { bold: true }; worksheet.getCell('R6').alignment = { horizontal: 'right' }; worksheet.getCell('R6').font = { bold: true };
@@ -326,14 +326,14 @@ const handleAddFamily = async (dataFamily) => {
                     <button onClick={() => setModalState({ type: 'addFamily', data: emptyWarga })} style={buttonStyle.addFamily}>+ Keluarga</button>
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowExportMenu(!showExportMenu)} style={buttonStyle.exportTrigger}>📤 Export ▼</button>
-                        {showExportMenu && ( <div style={buttonStyle.dropdownMenu} onMouseLeave={() => setShowExportMenu(false)}> <button onClick={() => { handleExportPDF(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#ff4d4f'}}>📄 Export PDF</button> <button onClick={() => { handleExportExcel(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#00c853'}}>📊 Export Excel</button> </div> )}
+                        {showExportMenu && ( <div style={buttonStyle.dropdownMenu} onMouseLeave={() => setShowExportMenu(false)}> <button onClick={() => { handleExportPDF(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#ff4d4f'}}>📄 Download PDF</button> <button onClick={() => { handleExportExcel(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#00c853'}}>📊 Download Excel</button> </div> )}
                     </div>
                 </div>
              </div>
              
              {/* DROPDOWN FILTER CUSTOM */}
              <div style={{ padding: '1rem', background: 'rgba(0, 170, 255, 0.03)', border: '1px solid rgba(0, 170, 255, 0.1)', borderRadius: '10px', position:'relative' }}>
-               <label style={{ color: '#00eaff', marginBottom: '0.5rem', display: 'block', fontWeight: '600', fontSize: '0.85rem' }}>Filter Statistik (Pemerintah):</label>
+               <label style={{ color: '#00eaff', marginBottom: '0.5rem', display: 'block', fontWeight: '600', fontSize: '0.85rem' }}>Filter Statistik</label>
                <div onClick={() => setIsFilterOpen(!isFilterOpen)} style={{ width: 'auto', minWidth: '220px', maxWidth: '100%', padding: '0.6rem 1rem', fontSize: '0.85rem', background: 'rgba(20, 20, 20, 0.8)', border: `1px solid ${isFilterOpen ? '#00eaff' : '#444'}`, color: ageFilter ? '#fff' : '#ccc', borderRadius: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: isFilterOpen ? '0 0 10px rgba(0, 234, 255, 0.2)' : 'none', transition: 'all 0.3s ease' }}>
                   <span style={{ fontWeight: '500' }}>{renderFilterLabel()}</span>
                   <span style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', color: '#00eaff' }}>▼</span>

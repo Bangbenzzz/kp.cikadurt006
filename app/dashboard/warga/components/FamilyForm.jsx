@@ -5,7 +5,7 @@ const FamilyForm = ({ onSave, onCancel }) => {
     const [no_kk, setNoKk] = useState(""); 
     const [nama_kk, setNamaKk] = useState(""); 
     const [alamat, setAlamat] = useState("Kp. Cikadu"); 
-    const [rt, setRt] = useState("06"); 
+    const [rt, setRt] = useState("02"); 
     const [rw, setRw] = useState("19"); 
     
     const defP = { nama: "", nik: "", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", gol_darah: "-", is_dead: false, is_yatim: false, is_duafa: false }; 

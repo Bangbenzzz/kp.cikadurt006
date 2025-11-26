@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { inputStyle, buttonStyle, pendidikanOptions, golDarahOptions } from "./styles";
 
 const PersonForm = ({ initialData, onSave, onCancel, isEdit = false }) => { 
-    const defaultForm = { nama: "", nik: "", no_kk: "", nama_kk: "", rt: "06", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false }; 
+    const defaultForm = { nama: "", nik: "", no_kk: "", nama_kk: "", rt: "02", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false }; 
     const [formData, setFormData] = useState({ ...defaultForm, ...initialData }); 
     
     useEffect(() => { setFormData({ ...defaultForm, ...initialData }); }, [initialData]); 
