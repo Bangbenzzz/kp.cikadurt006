@@ -50,7 +50,8 @@ export default function WargaPage() {
   useEffect(() => { if (toast.isVisible) { const timer = setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000); return () => clearTimeout(timer); } }, [toast.isVisible]);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const dataPerPage = 20;
+  const dataPerPage = 10;
+  
   const emptyWarga = { id: null, nama: "", nik: "", no_kk: "", nama_kk: "", rt: "02", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false };
 
   useEffect(() => {
@@ -191,7 +192,6 @@ export default function WargaPage() {
     finally { setIsSaving(false); }
   };
 
-  // --- FUNGSI IMPORT JSON (FIXED: MENCEGAH GOL DARAH TERTUKAR TANGGAL) ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -215,17 +215,13 @@ export default function WargaPage() {
                 if (!rawNik || !rawNama) { continue; }
 
                 const cleanNIK = String(rawNik).trim();
-                
-                // 1. FIX TANGGAL LAHIR
                 let rawTgl = item.tgl_lahir || item.Tgl_Lahir || item['Tgl Lahir'] || item.tanggal_lahir || "";
                 let cleanTgl = "";
                 if(rawTgl) {
-                    cleanTgl = String(rawTgl).replace(/\//g, "-"); // Ubah 1990/01/01 jadi 1990-01-01
+                    cleanTgl = String(rawTgl).replace(/\//g, "-"); 
                 }
 
-                // 2. FIX GOLONGAN DARAH (VALIDASI KETAT)
                 let rawGolDarah = item.gol_darah || item.Gol_Darah || item['Gol Darah'] || item.goldar || "-";
-                // Jika Gol Darah panjang atau ada angka (seperti 3/5/2003), PAKSA JADI "-"
                 if (String(rawGolDarah).length > 3 || /\d/.test(String(rawGolDarah))) {
                     rawGolDarah = "-";
                 }
@@ -242,7 +238,7 @@ export default function WargaPage() {
                     tempat_lahir: item.tempat_lahir || item.Tempat_Lahir || "",
                     tgl_lahir: cleanTgl, 
                     agama: item.agama || "Islam",
-                    gol_darah: rawGolDarah, // Ini yang sudah divalidasi
+                    gol_darah: rawGolDarah, 
                     pendidikan: item.pendidikan || item.pendidikan_terakhir || item.Pendidikan || "-",
                     pekerjaan: item.pekerjaan || item.Pekerjaan || "-", 
                     status: item.status || item.hub_keluarga || item.Hubungan || "Warga", 
@@ -306,6 +302,7 @@ export default function WargaPage() {
         const tableRows = exportData.map((w, index) => [ index + 1, w.no_kk, w.nik, w.nama, w.status, w.alamat, w.rt, w.rw, w.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan', w.agama, w.gol_darah, w.tempat_lahir, formatTableDate(w.tgl_lahir), getAge(w.tgl_lahir), w.pendidikan, w.pekerjaan ]);
         const filterText = ageFilter ? `Kategori: ${ageFilter}` : 'Kategori: Semua Warga (Aktif)';
         const exportTime = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Jakarta' }) + ' WIB';
+        
         autoTable(doc, {
             head: [tableColumn], body: tableRows, startY: 50, theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2, valign: 'middle', overflow: 'linebreak', lineColor: [200, 200, 200], lineWidth: 0.1 },
@@ -324,7 +321,8 @@ export default function WargaPage() {
                 doc.setDrawColor(150); doc.setLineWidth(0.2); doc.line(data.settings.margin.left, pageHeight - 10, pageWidth - data.settings.margin.right, pageHeight - 10);
                 doc.setFontSize(9); doc.setTextColor(100); doc.text(`Halaman ${doc.internal.getNumberOfPages()}`, pageWidth - data.settings.margin.right, pageHeight - 5, { align: 'right' }); doc.text("Sistem Administrasi RT Kp. Cikadu", data.settings.margin.left, pageHeight - 5);
             },
-            margin: { top: 55, bottom: 15, left: 20, right: 20 }
+            // PERBAIKAN: margin top diubah jadi 50 supaya sama dengan startY halaman 1
+            margin: { top: 50, bottom: 15, left: 20, right: 20 }
         });
         showToast("Mengunduh PDF...", "success"); 
         doc.save(`Data_Warga_Cikadu_${new Date().toISOString().slice(0,10)}.pdf`);
