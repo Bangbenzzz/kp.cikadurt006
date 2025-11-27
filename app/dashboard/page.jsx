@@ -143,7 +143,8 @@ export default function DashboardHome() {
         `}</style>
 
         {/* --- HEADER --- */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
+        {/* PERUBAHAN DISINI: alignItems diganti dari 'flex-end' menjadi 'center' agar sejajar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
             <div>
                 <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color:'#00eaff', fontFamily: 'monospace' }}>Kp. Cikadu RT. 02</h1>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#888' }}>Ketua RT. 02 Dedi Suryadi</p>
@@ -171,7 +172,7 @@ export default function DashboardHome() {
             
             {/* GRAPH KEUANGAN */}
             <div style={containerStyle}>
-                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Tren Kas RT</h3>
+                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Grafik Kas</h3>
                 <div style={chartWrapperStyle}>
                     {isClient && (
                         <ResponsiveContainer width="99%" height="100%" minWidth={0}>

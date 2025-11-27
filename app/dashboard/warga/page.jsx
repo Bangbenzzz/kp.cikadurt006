@@ -1,16 +1,213 @@
 "use client";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { db, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from '@/lib/firebase';
-
-// IMPORT KOMPONEN
-import { inputStyle, buttonStyle } from "./components/styles";
-import PersonForm from "./components/PersonForm";
-import FamilyForm from "./components/FamilyForm";
+import { FaFilePdf, FaFileExcel } from "react-icons/fa"; // IMPORT ICON BARU
 
 // ==================================================================================
-// KONFIGURASI SPREADSHEET (WAJIB DIGANTI DENGAN URL ANDA SENDIRI)
+// 1. STYLE & COMPONENT KECIL
 // ==================================================================================
+
+export const inputStyle = { width: '100%', padding: '0.65rem', fontSize: '0.85rem', background: 'rgba(0,0,0,0.6)', border: '1px solid #333', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'border 0.2s', boxSizing: 'border-box' };
+
+export const buttonStyle = {
+    save: { padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'linear-gradient(145deg, #0a84ff, #0066cc)', border: '1px solid #0a84ff', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+    cancel: { padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'rgba(255,255,255,0.1)', border: '1px solid #555', borderRadius: '6px', color: '#ccc', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+    delete: { padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'linear-gradient(145deg, #ff4d4f, #b30021)', border: '1px solid #ff4d4f', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+    pagination: { padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', border: '1px solid #555', borderRadius: '6px', color: '#ccc', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', },
+    paginationActive: { padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'linear-gradient(145deg, #0a84ff, #0066cc)', border: '1px solid #0a84ff', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'default', transition: 'all 0.2s', },
+    addFamily: { flex: '1 1 auto', padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'linear-gradient(145deg, #0a84ff, #0066cc)', border: '1px solid #0a84ff', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', justifyContent: 'center', minWidth: '140px' },
+    exportTrigger: { flex: '1 1 auto', padding: '0.5rem 1.2rem', fontSize: '0.85rem', background: 'linear-gradient(145deg, #8e2de2, #4a00e0)', border: '1px solid #8e2de2', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', minWidth: '140px' },
+    dropdownMenu: { position: 'absolute', top: '110%', right: 0, background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.7)', zIndex: 100, overflow: 'hidden', minWidth: '180px', display: 'flex', flexDirection: 'column' },
+    dropdownItem: { padding: '0.8rem 1rem', fontSize: '0.85rem', background: 'transparent', border: 'none', borderBottom: '1px solid #333', color: '#ccc', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.8rem', transition: 'background 0.2s' }
+};
+
+export const pendidikanOptions = ["Tidak/Belum Sekolah", "Belum Tamat SD/Sederajat", "Tamat SD/Sederajat", "SLTP/SEDERAJAT", "SLTA/SEDERAJAT", "Diploma I/II", "Akademi/Diploma III/S. Muda", "Diploma IV/Strata I", "Strata II", "Strata III"];
+export const golDarahOptions = ["-", "A", "B", "AB", "O"];
+
+// ==================================================================================
+// 2. FORM COMPONENTS (FAMILY & PERSON)
+// ==================================================================================
+
+const FamilyForm = ({ onSave, onCancel, isLoading }) => { 
+    const [no_kk, setNoKk] = useState(""); 
+    const [nama_kk, setNamaKk] = useState(""); 
+    const [alamat, setAlamat] = useState("Kp. Cikadu"); 
+    const [rt, setRt] = useState("02"); 
+    const [rw, setRw] = useState("19"); 
+    
+    const defP = { nama: "", nik: "", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", gol_darah: "-", is_dead: false, is_yatim: false, is_duafa: false }; 
+    
+    const [kk, setKk] = useState({...defP, status:"Kepala Keluarga", status_kawin:"Kawin"}); 
+    const [istri, setIstri] = useState({...defP, jenis_kelamin:"P", status:"Istri", status_kawin:"Kawin"}); 
+    const [anak, setAnak] = useState([{...defP, status:"Anak"}]); 
+
+    const handleKepalakeluargaChange = (e) => { 
+        const { name, value, type, checked } = e.target; 
+        setKk(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value })); 
+        if(name === 'nama') setNamaKk(value); 
+    }; 
+    
+    const handleIstriChange = (e) => { 
+        const { name, value, type, checked } = e.target; 
+        setIstri(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value })); 
+    }; 
+    
+    const handleAnakChange = (index, e) => { 
+        const { name, value, type, checked } = e.target; 
+        const newAnak = [...anak]; 
+        newAnak[index] = { ...newAnak[index], [name]: type === 'checkbox' ? checked : value }; 
+        setAnak(newAnak); 
+    }; 
+    
+    const handleAddAnak = () => { setAnak(prev => [...prev, { ...defP, status: "Anak" }]); }; 
+    const handleRemoveAnak = (index) => { setAnak(prev => prev.filter((_, i) => i !== index)); }; 
+    
+    const handleSubmit = (e) => { 
+        e.preventDefault(); 
+        if (!no_kk || !kk.nama || !kk.nik) { alert('Data Kepala Keluarga wajib diisi!'); return; } 
+        const fam = [{...kk, no_kk, nama_kk, alamat, rt, rw}]; 
+        if(istri.nama && istri.nik) fam.push({...istri, no_kk, nama_kk, alamat, rt, rw}); 
+        anak.forEach(a => { if(a.nama && a.nik) fam.push({...a, no_kk, nama_kk, alamat, rt, rw}); }); 
+        onSave(fam); 
+    }; 
+    
+    return ( 
+        <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}> 
+             <h2 style={{ color: '#00eaff', margin: 0, marginBottom: '0.5rem', fontSize: '1.2rem' }}>Input Data Keluarga</h2>
+             
+             <div style={{ paddingBottom: '1rem', borderBottom: '2px solid rgba(0, 255, 136, 0.3)' }}>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginBottom: '0.5rem'}}>
+                    <input name="no_kk" value={no_kk} onChange={(e) => setNoKk(e.target.value)} placeholder="Nomor KK*" required style={inputStyle} />
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0.5rem'}}>
+                    <input name="rt" value={rt} onChange={(e) => setRt(e.target.value)} placeholder="RT" style={inputStyle} />
+                    <input name="rw" value={rw} onChange={(e) => setRw(e.target.value)} placeholder="RW" style={inputStyle} />
+                    <input name="alamat" value={alamat} onChange={(e) => setAlamat(e.target.value)} placeholder="Alamat" style={inputStyle} />
+                </div>
+            </div>
+
+             <div style={{ borderLeft: '3px solid #00ff88', paddingLeft: '1rem' }}>
+                <h3 style={{ color: '#00ff88', margin: '0 0 0.8rem 0', fontSize: '0.95rem' }}>Kepala Keluarga *</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
+                    <input name="nama" value={kk.nama} onChange={handleKepalakeluargaChange} placeholder="Nama Lengkap*" required style={inputStyle} />
+                    <input name="nik" value={kk.nik} onChange={handleKepalakeluargaChange} placeholder="NIK*" required style={inputStyle} />
+                    <select name="jenis_kelamin" value={kk.jenis_kelamin} onChange={handleKepalakeluargaChange} style={inputStyle}> <option value="L">Laki-laki</option> <option value="P">Perempuan</option> </select>
+                    <input name="tempat_lahir" value={kk.tempat_lahir} onChange={handleKepalakeluargaChange} placeholder="Tempat Lahir" style={inputStyle} />
+                    <input name="tgl_lahir" type="date" value={kk.tgl_lahir} onChange={handleKepalakeluargaChange} style={{...inputStyle, colorScheme: 'dark'}} />
+                    <input name="agama" value={kk.agama} onChange={handleKepalakeluargaChange} placeholder="Agama" style={inputStyle} />
+                    <select name="gol_darah" value={kk.gol_darah} onChange={handleKepalakeluargaChange} style={inputStyle}> {golDarahOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)} </select>
+                    <select name="pendidikan" value={kk.pendidikan} onChange={handleKepalakeluargaChange} style={inputStyle}>{pendidikanOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                    <input name="pekerjaan" value={kk.pekerjaan} onChange={handleKepalakeluargaChange} placeholder="Pekerjaan" style={inputStyle} />
+                </div>
+             </div>
+             
+             <div style={{ borderLeft: '3px solid #ff80ed', paddingLeft: '1rem' }}>
+                <h3 style={{ color: '#ff80ed', margin: '0 0 0.8rem 0', fontSize: '0.95rem' }}>Istri (Opsional)</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
+                    <input name="nama" value={istri.nama} onChange={handleIstriChange} placeholder="Nama Lengkap" style={inputStyle} />
+                    <input name="nik" value={istri.nik} onChange={handleIstriChange} placeholder="NIK" style={inputStyle} />
+                    <input name="tempat_lahir" value={istri.tempat_lahir} onChange={handleIstriChange} placeholder="Tempat Lahir" style={inputStyle} />
+                    <input name="tgl_lahir" type="date" value={istri.tgl_lahir} onChange={handleIstriChange} style={{...inputStyle, colorScheme: 'dark'}} />
+                    <input name="agama" value={istri.agama} onChange={handleIstriChange} placeholder="Agama" style={inputStyle} />
+                    <select name="gol_darah" value={istri.gol_darah} onChange={handleIstriChange} style={inputStyle}> {golDarahOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)} </select>
+                    <select name="pendidikan" value={istri.pendidikan} onChange={handleIstriChange} style={inputStyle}>{pendidikanOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                    <input name="pekerjaan" value={istri.pekerjaan} onChange={handleIstriChange} placeholder="Pekerjaan" style={inputStyle} />
+                </div>
+             </div>
+
+             <div style={{ borderLeft: '3px solid #ffaa00', paddingLeft: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', gap: '1rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ color: '#ffaa00', margin: 0, fontSize: '0.95rem' }}>Anak (Opsional)</h3>
+                    <button type="button" onClick={handleAddAnak} style={{ ...buttonStyle.save, padding: '0.3rem 0.8rem', fontSize: '0.75rem' }}> + Tambah Anak </button>
+                </div>
+                {anak.map((anakItem, index) => (
+                    <div key={index} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255, 170, 0, 0.2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <span style={{ color: '#ffaa00', fontWeight: '500', fontSize: '0.8rem' }}>Anak {index + 1}</span>
+                            <button type="button" onClick={() => handleRemoveAnak(index)} style={{ ...buttonStyle.delete, padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}> Hapus </button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
+                            <input name="nama" value={anakItem.nama} onChange={(e) => handleAnakChange(index, e)} placeholder="Nama" style={inputStyle} />
+                            <input name="nik" value={anakItem.nik} onChange={(e) => handleAnakChange(index, e)} placeholder="NIK" style={inputStyle} />
+                            <select name="jenis_kelamin" value={anakItem.jenis_kelamin} onChange={(e) => handleAnakChange(index, e)} style={inputStyle}> <option value="L">Laki-laki</option> <option value="P">Perempuan</option> </select>
+                            <input name="tempat_lahir" value={anakItem.tempat_lahir} onChange={(e) => handleAnakChange(index, e)} placeholder="Tempat Lahir" style={inputStyle} />
+                            <input name="tgl_lahir" type="date" value={anakItem.tgl_lahir} onChange={(e) => handleAnakChange(index, e)} style={{...inputStyle, colorScheme: 'dark'}} />
+                            <select name="gol_darah" value={anakItem.gol_darah} onChange={(e) => handleAnakChange(index, e)} style={inputStyle}> {golDarahOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)} </select>
+                            <select name="pendidikan" value={anakItem.pendidikan} onChange={(e) => handleAnakChange(index, e)} style={inputStyle}>{pendidikanOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                            <input name="pekerjaan" value={anakItem.pekerjaan} onChange={(e) => handleAnakChange(index, e)} placeholder="Pekerjaan" style={inputStyle} />
+                        </div>
+                    </div>
+                ))}
+             </div>
+             
+             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap-reverse' }}> 
+                <button type="button" disabled={isLoading} onClick={onCancel} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> 
+                <button type="submit" disabled={isLoading} style={{...buttonStyle.save, opacity: isLoading?0.5:1}}>{isLoading ? 'Menyimpan...' : 'Simpan Keluarga'}</button> 
+             </div> 
+        </form> 
+    ); 
+};
+
+const PersonForm = ({ initialData, onSave, onCancel, isEdit = false, onAddChild, isLoading }) => { 
+    const defaultForm = { nama: "", nik: "", no_kk: "", nama_kk: "", rt: "02", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false }; 
+    const [formData, setFormData] = useState({ ...defaultForm, ...initialData }); 
+    
+    useEffect(() => { setFormData({ ...defaultForm, ...initialData }); }, [initialData]); 
+    
+    const handleChange = (e) => { const { name, value, type, checked } = e.target; setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value })); }; 
+    const handleSubmit = (e) => { e.preventDefault(); if (!formData.nama || !formData.nik) { alert('Nama dan NIK wajib diisi!'); return; } onSave(formData); }; 
+    
+    return ( 
+        <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:'1rem'}}> 
+            <h2 style={{color:'#00eaff',margin:0,fontSize:'1.2rem'}}>{isEdit?'Edit Data Warga':'Tambah Data Warga'}</h2> 
+            
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'0.8rem'}}> 
+                <input name="nama" value={formData.nama||""} onChange={handleChange} placeholder="Nama Lengkap*" required style={inputStyle} /> 
+                <input name="nik" value={formData.nik||""} onChange={handleChange} placeholder="NIK*" required style={inputStyle} /> 
+                <input name="no_kk" value={formData.no_kk||""} onChange={handleChange} placeholder="No. KK*" required style={inputStyle} /> 
+                <div style={{display:'flex',gap:'0.5rem'}}> 
+                    <input name="rt" value={formData.rt||""} onChange={handleChange} placeholder="RT" style={inputStyle} /> 
+                    <input name="rw" value={formData.rw||""} onChange={handleChange} placeholder="RW" style={inputStyle} /> 
+                </div> 
+                <input name="alamat" value={formData.alamat||""} onChange={handleChange} placeholder="Alamat" style={inputStyle} /> 
+                <select name="jenis_kelamin" value={formData.jenis_kelamin||"L"} onChange={handleChange} style={inputStyle}> <option value="L">Laki-laki</option> <option value="P">Perempuan</option> </select> 
+                <input name="tempat_lahir" value={formData.tempat_lahir||""} onChange={handleChange} placeholder="Tempat Lahir" style={inputStyle} /> 
+                <input name="tgl_lahir" type="date" value={formData.tgl_lahir||""} onChange={handleChange} style={{...inputStyle,colorScheme:'dark'}} /> 
+                <input name="agama" value={formData.agama||""} onChange={handleChange} placeholder="Agama" style={inputStyle} /> 
+                <select name="gol_darah" value={formData.gol_darah||"-"} onChange={handleChange} style={inputStyle}> {golDarahOptions.map(opt=><option key={opt} value={opt}>{opt}</option>)} </select> 
+                <select name="pendidikan" value={formData.pendidikan||"Tidak/Belum Sekolah"} onChange={handleChange} style={inputStyle}>{pendidikanOptions.map(opt=><option key={opt} value={opt}>{opt}</option>)}</select> 
+                <input name="pekerjaan" value={formData.pekerjaan||""} onChange={handleChange} placeholder="Pekerjaan" style={inputStyle} /> 
+                <select name="status" value={formData.status||"Warga"} onChange={handleChange} style={inputStyle}> <option value="Kepala Keluarga">Kepala Keluarga</option> <option value="Istri">Istri</option> <option value="Anak">Anak</option> <option value="Warga">Warga</option> </select> 
+                
+                <div style={{display:'flex',flexDirection:'column',gap:'0.5rem',padding:'0.75rem',background:'rgba(0,0,0,0.4)',border:'1px solid #333',borderRadius:'6px'}}> 
+                    <label style={{color:'#ccc'}}><input name="is_yatim" type="checkbox" checked={formData.is_yatim||false} onChange={handleChange} /> Yatim/Piatu</label> 
+                    <label style={{color:'#ccc'}}><input name="is_duafa" type="checkbox" checked={formData.is_duafa||false} onChange={handleChange} /> Duafa</label> 
+                    <label style={{color:'#ff4d4f'}}><input name="is_dead" type="checkbox" checked={formData.is_dead||false} onChange={handleChange} /> Meninggal Dunia</label> 
+                </div> 
+            </div> 
+            
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'1rem', flexWrap:'wrap', gap:'1rem'}}> 
+                <div>
+                    {isEdit && (
+                        <button type="button" disabled={isLoading} onClick={() => onAddChild(formData)} style={{...buttonStyle.addFamily, fontSize: '0.8rem', padding: '0.5rem 1rem', background: 'linear-gradient(145deg, #ffaa00, #cc8800)', border: '1px solid #ffaa00', opacity: isLoading ? 0.5 : 1}}>
+                            + Tambah Anak
+                        </button>
+                    )}
+                </div>
+                <div style={{display:'flex', gap:'1rem'}}>
+                    <button type="button" disabled={isLoading} onClick={onCancel} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> 
+                    <button type="submit" disabled={isLoading} style={{...buttonStyle.save, opacity: isLoading?0.5:1}}>{isLoading ? 'Menyimpan...' : 'Simpan'}</button> 
+                </div>
+            </div> 
+        </form> 
+    ); 
+};
+
+// ==================================================================================
+// 3. MAIN PAGE LOGIC
+// ==================================================================================
+
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_ixGsBHyGtBzQpsgq4dpD6fVfRl-HmnNLzWYFwZhlqh2ff1HHMadKtqwi-GkgKvPFYg/exec"; 
 
 // --- HELPER ---
@@ -33,7 +230,6 @@ const Modal = ({ isOpen, onClose, children, maxWidth = "600px" }) => { const [m,
 const ConfirmationModal = ({ onConfirm, onCancel, title, message, confirmText, confirmStyle, isLoading }) => ( <div> <h3 style={{color:confirmStyle.color,textAlign:'center',marginTop:0}}>{title}</h3> <p style={{textAlign:'center',color:'#aaa',margin:'1.5rem 0'}}>{message}</p> <div style={{display:'flex',justifyContent:'center',gap:'1rem'}}> <button onClick={onCancel} disabled={isLoading} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> <button onClick={onConfirm} disabled={isLoading} style={{...confirmStyle, opacity: isLoading?0.5:1}}>{isLoading ? 'Memproses...' : confirmText}</button> </div> </div> );
 const ToastNotification = ({ message, type, isVisible, onClose }) => { const [m,sM]=useState(false); useEffect(()=>sM(true),[]); if(!m)return null; const col=type==='success'?'#00ff88':'#ff4d4f'; return ReactDOM.createPortal( <div style={{position:'fixed',top:'20px',left:'50%',transform:isVisible?'translate(-50%,0)':'translate(-50%,-200%)',background:`${col}1A`,border:`1px solid ${col}80`,color:'#fff',padding:'0.75rem 1.5rem',borderRadius:'50px',zIndex:9999,opacity:isVisible?1:0,transition:'all 0.5s',backdropFilter:'blur(12px)'}}> {message} </div>, document.body ); };
 
-// --- HALAMAN UTAMA ---
 export default function WargaPage() {
   const [warga, setWarga] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -381,10 +577,22 @@ export default function WargaPage() {
                     </button>
 
                     <button onClick={() => setModalState({ type: 'addFamily', data: emptyWarga })} style={buttonStyle.addFamily}>+ Keluarga</button>
+                    
+                    {/* --- TOMBOL EXPORT DENGAN ICON (UPDATE DISINI) --- */}
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowExportMenu(!showExportMenu)} style={buttonStyle.exportTrigger}>📤 Export ▼</button>
-                        {showExportMenu && ( <div style={buttonStyle.dropdownMenu} onMouseLeave={() => setShowExportMenu(false)}> <button onClick={() => { handleExportPDF(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#ff4d4f'}}>📄 Download PDF</button> <button onClick={() => { handleExportExcel(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#00c853'}}>📊 Download Excel</button> </div> )}
+                        {showExportMenu && ( 
+                            <div style={buttonStyle.dropdownMenu} onMouseLeave={() => setShowExportMenu(false)}> 
+                                <button onClick={() => { handleExportPDF(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#fff'}}>
+                                    <FaFilePdf style={{ color: '#ef4444', fontSize: '1rem' }} /> Download PDF
+                                </button> 
+                                <button onClick={() => { handleExportExcel(); setShowExportMenu(false); }} style={{...buttonStyle.dropdownItem, color: '#fff'}}>
+                                    <FaFileExcel style={{ color: '#10b981', fontSize: '1rem' }} /> Download Excel
+                                </button> 
+                            </div> 
+                        )}
                     </div>
+
                 </div>
              </div>
              
