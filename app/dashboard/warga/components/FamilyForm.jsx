@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { inputStyle, buttonStyle, pendidikanOptions, golDarahOptions } from "./styles";
 
-const FamilyForm = ({ onSave, onCancel }) => { 
+const FamilyForm = ({ onSave, onCancel, isLoading }) => { 
     const [no_kk, setNoKk] = useState(""); 
     const [nama_kk, setNamaKk] = useState(""); 
     const [alamat, setAlamat] = useState("Kp. Cikadu"); 
@@ -17,7 +17,6 @@ const FamilyForm = ({ onSave, onCancel }) => {
     const handleKepalakeluargaChange = (e) => { 
         const { name, value, type, checked } = e.target; 
         setKk(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value })); 
-        // Logic ini TETAP ADA agar nama_kk tersimpan otomatis saat user mengetik Nama di bagian bawah
         if(name === 'nama') setNamaKk(value); 
     }; 
     
@@ -33,13 +32,8 @@ const FamilyForm = ({ onSave, onCancel }) => {
         setAnak(newAnak); 
     }; 
     
-    const handleAddAnak = () => { 
-        setAnak(prev => [...prev, { ...defP, status: "Anak" }]); 
-    }; 
-    
-    const handleRemoveAnak = (index) => { 
-        setAnak(prev => prev.filter((_, i) => i !== index)); 
-    }; 
+    const handleAddAnak = () => { setAnak(prev => [...prev, { ...defP, status: "Anak" }]); }; 
+    const handleRemoveAnak = (index) => { setAnak(prev => prev.filter((_, i) => i !== index)); }; 
     
     const handleSubmit = (e) => { 
         e.preventDefault(); 
@@ -54,9 +48,7 @@ const FamilyForm = ({ onSave, onCancel }) => {
         <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}> 
              <h2 style={{ color: '#00eaff', margin: 0, marginBottom: '0.5rem', fontSize: '1.2rem' }}>Input Data Keluarga</h2>
              
-             {/* BAGIAN DATA KK & ALAMAT (SUDAH DIPERBAIKI) */}
              <div style={{ paddingBottom: '1rem', borderBottom: '2px solid rgba(0, 255, 136, 0.3)' }}>
-                {/* Input Nama Kepala Keluarga di sini SUDAH DIHAPUS */}
                 <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginBottom: '0.5rem'}}>
                     <input name="no_kk" value={no_kk} onChange={(e) => setNoKk(e.target.value)} placeholder="Nomor KK*" required style={inputStyle} />
                 </div>
@@ -67,7 +59,6 @@ const FamilyForm = ({ onSave, onCancel }) => {
                 </div>
             </div>
 
-             {/* BAGIAN KEPALA KELUARGA (User isi nama di sini) */}
              <div style={{ borderLeft: '3px solid #00ff88', paddingLeft: '1rem' }}>
                 <h3 style={{ color: '#00ff88', margin: '0 0 0.8rem 0', fontSize: '0.95rem' }}>Kepala Keluarga *</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
@@ -83,7 +74,6 @@ const FamilyForm = ({ onSave, onCancel }) => {
                 </div>
              </div>
              
-             {/* BAGIAN ISTRI */}
              <div style={{ borderLeft: '3px solid #ff80ed', paddingLeft: '1rem' }}>
                 <h3 style={{ color: '#ff80ed', margin: '0 0 0.8rem 0', fontSize: '0.95rem' }}>Istri (Opsional)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
@@ -98,7 +88,6 @@ const FamilyForm = ({ onSave, onCancel }) => {
                 </div>
              </div>
 
-             {/* BAGIAN ANAK */}
              <div style={{ borderLeft: '3px solid #ffaa00', paddingLeft: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', gap: '1rem', flexWrap: 'wrap' }}>
                     <h3 style={{ color: '#ffaa00', margin: 0, fontSize: '0.95rem' }}>Anak (Opsional)</h3>
@@ -124,10 +113,9 @@ const FamilyForm = ({ onSave, onCancel }) => {
                 ))}
              </div>
              
-             {/* Tombol Simpan */}
              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap-reverse' }}> 
-                <button type="button" onClick={onCancel} style={buttonStyle.cancel}>Batal</button> 
-                <button type="submit" style={buttonStyle.save}>Simpan Keluarga</button> 
+                <button type="button" disabled={isLoading} onClick={onCancel} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> 
+                <button type="submit" disabled={isLoading} style={{...buttonStyle.save, opacity: isLoading?0.5:1}}>{isLoading ? 'Menyimpan...' : 'Simpan Keluarga'}</button> 
              </div> 
         </form> 
     ); 

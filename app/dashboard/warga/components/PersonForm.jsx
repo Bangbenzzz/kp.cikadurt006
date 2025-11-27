@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { inputStyle, buttonStyle, pendidikanOptions, golDarahOptions } from "./styles";
 
-const PersonForm = ({ initialData, onSave, onCancel, isEdit = false }) => { 
+const PersonForm = ({ initialData, onSave, onCancel, isEdit = false, onAddChild, isLoading }) => { 
     const defaultForm = { nama: "", nik: "", no_kk: "", nama_kk: "", rt: "02", rw: "19", alamat: "Kp. Cikadu", jenis_kelamin: "L", tempat_lahir: "", tgl_lahir: "", agama: "Islam", gol_darah: "-", pendidikan: "SLTA/SEDERAJAT", pekerjaan: "", status_kawin: "Belum Kawin", status: "Warga", is_yatim: false, is_duafa: false, is_dead: false }; 
     const [formData, setFormData] = useState({ ...defaultForm, ...initialData }); 
     
@@ -15,17 +15,13 @@ const PersonForm = ({ initialData, onSave, onCancel, isEdit = false }) => {
             <h2 style={{color:'#00eaff',margin:0,fontSize:'1.2rem'}}>{isEdit?'Edit Data Warga':'Tambah Data Warga'}</h2> 
             
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'0.8rem'}}> 
-                {/* Input Nama Kepala Keluarga SUDAH DIHAPUS dari sini agar tidak ganda */}
-                
                 <input name="nama" value={formData.nama||""} onChange={handleChange} placeholder="Nama Lengkap*" required style={inputStyle} /> 
                 <input name="nik" value={formData.nik||""} onChange={handleChange} placeholder="NIK*" required style={inputStyle} /> 
                 <input name="no_kk" value={formData.no_kk||""} onChange={handleChange} placeholder="No. KK*" required style={inputStyle} /> 
-                
                 <div style={{display:'flex',gap:'0.5rem'}}> 
                     <input name="rt" value={formData.rt||""} onChange={handleChange} placeholder="RT" style={inputStyle} /> 
                     <input name="rw" value={formData.rw||""} onChange={handleChange} placeholder="RW" style={inputStyle} /> 
                 </div> 
-                
                 <input name="alamat" value={formData.alamat||""} onChange={handleChange} placeholder="Alamat" style={inputStyle} /> 
                 <select name="jenis_kelamin" value={formData.jenis_kelamin||"L"} onChange={handleChange} style={inputStyle}> <option value="L">Laki-laki</option> <option value="P">Perempuan</option> </select> 
                 <input name="tempat_lahir" value={formData.tempat_lahir||""} onChange={handleChange} placeholder="Tempat Lahir" style={inputStyle} /> 
@@ -43,12 +39,20 @@ const PersonForm = ({ initialData, onSave, onCancel, isEdit = false }) => {
                 </div> 
             </div> 
             
-            <div style={{display:'flex',justifyContent:'flex-end',gap:'1rem'}}> 
-                <button type="button" onClick={onCancel} style={buttonStyle.cancel}>Batal</button> 
-                <button type="submit" style={buttonStyle.save}>Simpan</button> 
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'1rem', flexWrap:'wrap', gap:'1rem'}}> 
+                <div>
+                    {isEdit && (
+                        <button type="button" disabled={isLoading} onClick={() => onAddChild(formData)} style={{...buttonStyle.addFamily, fontSize: '0.8rem', padding: '0.5rem 1rem', background: 'linear-gradient(145deg, #ffaa00, #cc8800)', border: '1px solid #ffaa00', opacity: isLoading ? 0.5 : 1}}>
+                            + Tambah Anak
+                        </button>
+                    )}
+                </div>
+                <div style={{display:'flex', gap:'1rem'}}>
+                    <button type="button" disabled={isLoading} onClick={onCancel} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> 
+                    <button type="submit" disabled={isLoading} style={{...buttonStyle.save, opacity: isLoading?0.5:1}}>{isLoading ? 'Menyimpan...' : 'Simpan'}</button> 
+                </div>
             </div> 
         </form> 
     ); 
 };
-
 export default PersonForm;
