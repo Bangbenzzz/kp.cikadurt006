@@ -1,20 +1,18 @@
 "use client";
 
-// --- PATCH CONSOLE (Peredam Error Recharts) ---
+// --- PATCH CONSOLE ---
 const originalError = console.error;
 console.error = (...args) => {
   if (typeof args[0] === "string" && /defaultProps/.test(args[0])) return;
   if (typeof args[0] === "string" && /width\(-1\)/.test(args[0])) return;
   originalError.call(console, ...args);
 };
-// ----------------------------------------------
 
 import { AreaChart, Area, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts';
-import { FaWallet, FaLock } from "react-icons/fa";
+import { FaWallet, FaLock, FaClock } from "react-icons/fa";
 
 export default function KeuanganPage() {
   
-  // Data dummy untuk ilustrasi grafik naik
   const dummyData = [
     { name: 'Jan', saldo: 2000000 },
     { name: 'Feb', saldo: 3500000 },
@@ -26,23 +24,17 @@ export default function KeuanganPage() {
   ];
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      minHeight: '80vh', 
-      justifyContent: 'space-between',
-      gap: '2rem' 
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '80vh' }}>
       
-      {/* --- HEADER SIMPLE --- */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-         <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#e0e0e0', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+      {/* --- HEADER --- */}
+      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
+         <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <FaWallet style={{ color: '#00ff88' }} /> Keuangan RT
          </h1>
-         <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#888' }}>Transparansi Anggaran & Laporan Kas</p>
+         <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.85rem', color: '#888' }}>Transparansi Anggaran, Iuran & Laporan Kas</p>
       </div>
 
-      {/* --- KONTEN UTAMA (COMING SOON) --- */}
+      {/* --- KONTEN UTAMA (MAINTENANCE MODE) --- */}
       <div style={{ 
         flex: 1, 
         display: 'flex', 
@@ -50,39 +42,44 @@ export default function KeuanganPage() {
         alignItems: 'center', 
         justifyContent: 'center',
         textAlign: 'center',
-        background: 'linear-gradient(145deg, rgba(20,20,20,0.6), rgba(0,0,0,0.6))',
+        background: "rgba(10,10,10,0.4)", // Style konsisten dengan Warga/Dashboard
         borderRadius: '16px',
-        border: '1px solid rgba(0, 255, 136, 0.1)',
-        padding: '3rem 1rem',
+        border: '1px solid rgba(255,255,255,0.05)',
+        padding: '3rem 1.5rem',
         position: 'relative',
         overflow: 'hidden'
       }}>
         
-        {/* Background Glow Effect */}
-        <div style={{ position: 'absolute', top: '-50%', left: '50%', transform: 'translateX(-50%)', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(0,255,136,0.15) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }}></div>
+        {/* Decorative Glow */}
+        <div style={{ position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(0,255,136,0.08) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents:'none' }}></div>
 
-        {/* Ikon Gembok / Maintenance */}
-        <div style={{ zIndex: 1, fontSize: '3rem', color: '#00ff88', marginBottom: '1.5rem', animation: 'float 3s ease-in-out infinite' }}>
+        {/* Icon Animation */}
+        <style jsx>{`
+            @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        `}</style>
+        <div style={{ fontSize: '3.5rem', color: '#00ff88', marginBottom: '1.5rem', animation: 'float 3s ease-in-out infinite', dropShadow: '0 0 10px rgba(0,255,136,0.5)' }}>
             <FaLock />
         </div>
 
-        {/* Teks Utama */}
-        <h2 style={{ zIndex: 1, margin: '0 0 1rem 0', fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(to right, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Sistem Keuangan RT <br /> Akan Segera Hadir
+        <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.8rem', fontWeight: '800', color: '#fff' }}>
+            Fitur Segera Hadir
         </h2>
         
-        <p style={{ zIndex: 1, maxWidth: '500px', color: '#888', lineHeight: '1.6', marginBottom: '2.5rem' }}>
-            Fitur ini sedang dalam tahap pengembangan oleh Niki. Nantinya Anda dapat memantau pemasukan iuran, pengeluaran operasional, dan saldo kas RT secara realtime.
+        <p style={{ maxWidth: '500px', color: '#aaa', lineHeight: '1.6', marginBottom: '3rem', fontSize:'0.95rem' }}>
+            Modul Keuangan sedang dalam tahap pengembangan akhir. <br/>
+            Nantinya Anda dapat memantau pemasukan iuran warga, pengeluaran operasional, dan saldo kas RT secara <b>Realtime</b>.
         </p>
 
-        {/* Ilustrasi Grafik (Dummy) */}
-        <div style={{ zIndex: 1, width: '100%', maxWidth: '600px', height: '200px', position: 'relative', opacity: 0.8 }}>
-            <h4 style={{ textAlign: 'left', color: '#00ff88', fontSize: '0.8rem', marginBottom: '0.5rem', marginLeft: '1rem' }}>PREVIEW SYSTEM:</h4>
+        {/* Dummy Chart Preview */}
+        <div style={{ width: '100%', maxWidth: '700px', height: '220px', position: 'relative', padding: '1rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
+            <div style={{ position: 'absolute', top: '10px', left: '15px', display:'flex', alignItems:'center', gap:'0.5rem', color: '#00ff88', fontSize: '0.75rem', fontWeight:'600', textTransform:'uppercase' }}>
+                <FaClock /> Preview System
+            </div>
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dummyData}>
                     <defs>
                         <linearGradient id="colorSaldo" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#00ff88" stopOpacity={0.3}/>
+                            <stop offset="5%" stopColor="#00ff88" stopOpacity={0.2}/>
                             <stop offset="95%" stopColor="#00ff88" stopOpacity={0}/>
                         </linearGradient>
                     </defs>
@@ -90,11 +87,11 @@ export default function KeuanganPage() {
                     <XAxis dataKey="name" hide />
                     <YAxis hide />
                     <Tooltip 
-                        contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
+                        contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color: '#fff', fontSize:'0.8rem' }}
                         itemStyle={{ color: '#00ff88' }}
                         formatter={(value) => `Rp ${value.toLocaleString('id-ID')}`}
                     />
-                    <Area type="monotone" dataKey="saldo" stroke="#00ff88" strokeWidth={3} fillOpacity={1} fill="url(#colorSaldo)" />
+                    <Area type="monotone" dataKey="saldo" stroke="#00ff88" strokeWidth={2} fillOpacity={1} fill="url(#colorSaldo)" />
                 </AreaChart>
             </ResponsiveContainer>
         </div>
@@ -103,28 +100,11 @@ export default function KeuanganPage() {
 
       {/* --- FOOTER --- */}
       <footer style={{ 
-          textAlign: 'center', 
-          padding: '1rem', 
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          color: '#555',
-          fontSize: '0.85rem',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '0.5rem'
+          textAlign: 'center', padding: '1.5rem', 
+          borderTop: '1px solid rgba(255,255,255,0.05)', color: '#666', fontSize: '0.8rem'
       }}>
-          <span>&copy; {new Date().getFullYear()} Sistem Administrasi RT.</span>
-          <span style={{ color: '#00aaff', fontWeight: '600' }}>Fullstack Engineer Niki Azis</span>
+          &copy; {new Date().getFullYear()} Sistem Administrasi RT Kp. Cikadu. <span style={{ color: '#00eaff', marginLeft:'5px' }}>Developed by Niki Azis</span>
       </footer>
-
-      {/* Animasi Floating untuk Ikon */}
-      <style jsx global>{`
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
-      `}</style>
 
     </div>
   );
