@@ -1,6 +1,6 @@
 "use client";
 
-// --- 1. NUCLEAR CONSOLE PATCH (Tetap dipertahankan) ---
+// --- 1. NUCLEAR CONSOLE PATCH ---
 if (typeof window !== 'undefined') {
   const originalError = console.error;
   console.error = (...args) => {
@@ -54,16 +54,11 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile(); 
-    window.addEventListener('resize', checkMobile); 
     const timer = setInterval(() => setTime(new Date()), 1000);
     
-    // Fetch Warga & Keuangan
     const unsubWarga = onSnapshot(collection(db, 'warga'), (snap) => setWarga(snap.docs.map(doc => doc.data())));
     const qKeuangan = query(collection(db, 'keuangan'), orderBy('tanggal', 'asc'));
     const unsubKeuangan = onSnapshot(qKeuangan, (snap) => {
@@ -71,7 +66,7 @@ export default function DashboardHome() {
         setLoading(false); 
     });
 
-    return () => { clearInterval(timer); unsubWarga(); unsubKeuangan(); window.removeEventListener('resize', checkMobile); }
+    return () => { clearInterval(timer); unsubWarga(); unsubKeuangan(); }
   }, []);
 
   const stats = useMemo(() => {
@@ -124,6 +119,19 @@ export default function DashboardHome() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
         <style jsx global>{`
+            /* --- 1. MATIKAN SCROLLBAR DI DALAM CHART --- */
+            .no-scrollbar::-webkit-scrollbar {
+                display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                background: transparent !important;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+            }
+
+            /* --- 2. GRID SYSTEM --- */
             .stat-grid { 
                 display: grid; 
                 grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
@@ -134,41 +142,47 @@ export default function DashboardHome() {
                     grid-template-columns: 1fr 1fr !important; 
                     gap: 0.8rem; 
                 }
-                .card-inner {
-                    padding: 0.8rem !important;
-                    overflow: hidden; /* MENCEGAH SCROLLBAR MUNCUL DI KARTU */
-                }
             }
 
+            /* --- 3. NEON CARD (GRADASI FIX) --- */
             .neon-card {
                 position: relative;
-                background: #111; 
+                /* overflow: visible !important;  <-- PENTING: Jangan hidden agar glow terlihat */
                 border-radius: 16px;
                 z-index: 1;
                 border: 1px solid rgba(255,255,255,0.08);
+                /* background dihapus dari sini agar tidak menimpa glow */
             }
 
+            /* Efek Glow/Gradasi di Belakang */
             .neon-card::before {
                 content: "";
                 position: absolute;
-                inset: -1px; 
+                inset: -2px; /* Dibuat sedikit lebih lebar keluar */
                 border-radius: 16px;
-                z-index: -1;
-                background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
-                filter: blur(15px); 
-                opacity: 0.5; 
+                z-index: -1; /* Di belakang konten */
+                background: linear-gradient(135deg, var(--c1), transparent 40%, transparent 60%, var(--c2));
+                filter: blur(15px); /* Efek blur neon */
+                opacity: 0.6; 
+                transition: opacity 0.3s ease;
             }
 
+            /* Konten Dalam Kartu (Di sini kita hidden scrollbarnya) */
             .card-inner {
-                background: linear-gradient(to bottom, #161616, #111);
+                background: linear-gradient(to bottom, #161616, #0a0a0a); /* Background gelap kartu */
                 border-radius: 16px;
                 padding: 1.2rem;
                 height: 100%;
                 display: flex;
                 flex-direction: column;
                 position: relative;
-                z-index: 2; 
-                overflow: hidden; /* PENTING: Mencegah scrollbar internal */
+                z-index: 2; /* Di atas glow */
+                overflow: hidden; /* <-- CLIP KONTEN DI SINI (BUKAN DI PARENT) */
+                touch-action: pan-y; /* Fix smooth scroll di HP */
+            }
+            
+            @media (max-width: 768px) {
+                .card-inner { padding: 0.8rem !important; }
             }
         `}</style>
 
@@ -216,8 +230,7 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)
                     </h3>
-                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
-                    <div style={{ width: '100%', height: '200px', overflow: 'hidden' }}>
+                    <div className="no-scrollbar" style={{ width: '100%', height: '200px', overflow: 'hidden', position: 'relative' }}>
                         {isClient && (
                             <ResponsiveContainer width="99%" height="100%">
                                 <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
@@ -250,8 +263,7 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#8b5cf6'}}/> Demografi Usia
                     </h3>
-                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
-                    <div style={{ width: '100%', height: '200px', overflow: 'hidden' }}>
+                    <div className="no-scrollbar" style={{ width: '100%', height: '200px', overflow: 'hidden', position: 'relative' }}>
                         {isClient && (
                             <ResponsiveContainer width="99%" height="100%">
                                 <BarChart data={stats.ageData} margin={{top:10, right:10, left:-20, bottom:0}}>
@@ -277,8 +289,7 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender
                     </h3>
-                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative', overflow: 'hidden' }}>
+                    <div className="no-scrollbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative', overflow: 'hidden' }}>
                         {isClient && (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>

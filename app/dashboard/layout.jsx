@@ -15,7 +15,7 @@ const Modal = ({ isOpen, onClose, children, maxWidth = "600px" }) => {
   if (!isBrowser || !isOpen) return null;
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: 'blur(8px)', padding: '1rem' }}>
-      <div style={{ background: "#161616", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "1.5rem", width: "100%", maxWidth: maxWidth, maxHeight: "calc(100vh - 2rem)", overflowY: 'auto', boxShadow: "0 20px 50px rgba(0,0,0,0.5)", WebkitOverflowScrolling: 'touch' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: "#161616", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "1.5rem", width: "100%", maxWidth: maxWidth, maxHeight: "calc(100vh - 2rem)", overflowY: 'auto', boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>,
@@ -170,43 +170,56 @@ export default function DashboardLayout({ children }) {
       <style jsx global>{`
           @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); } } 
           
-          /* --- FIX SMOOTH SCROLL (The Magic Sauce) --- */
+          /* --- GLOBAL SCROLLBAR HIDING (SAFE METHOD) --- */
+          /* Ini menyembunyikan visual batang scrollbar TANPA mematikan fungsi scroll */
+          
+          /* Firefox */
+          html {
+            scrollbar-width: none;
+          }
+          
+          /* Chrome, Safari, Edge, Opera */
+          ::-webkit-scrollbar {
+            width: 0px;  /* Membuat lebarnya 0 */
+            background: transparent; /* Membuat background transparan */
+            display: none; /* Opsional: Sembunyikan total di webkit */
+          }
+
+          /* --- RESET & PERFORMANCE FIX --- */
           * { 
               box-sizing: border-box; 
-              -webkit-tap-highlight-color: transparent; /* Menghilangkan delay tap di mobile */
+              -webkit-tap-highlight-color: transparent; 
           }
-          html {
-              scroll-behavior: smooth;
-              height: 100%;
-          }
+
           body { 
               margin: 0; 
               background: #050505; 
               color: #e0e0e0; 
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
               
-              /* KUNCI SCROLL HALUS MOBILE: */
-              -webkit-overflow-scrolling: touch; 
-              overflow-y: auto;
-              overscroll-behavior-y: none; /* Mencegah efek bounce yang bikin berat */
-              text-rendering: optimizeLegibility;
+              /* KUNCI SUPAYA TIDAK PATAH-PATAH: */
+              /* Biarkan browser menangani scroll secara native (jangan overflow: auto di body) */
               -webkit-font-smoothing: antialiased;
+              text-rendering: optimizeLegibility;
+              
+              /* Mengaktifkan momentum scroll di iOS */
+              -webkit-overflow-scrolling: touch; 
           }
-          
-          /* Custom Scrollbar Global yang lebih smooth */
-          ::-webkit-scrollbar { width: 6px; height: 6px; }
-          ::-webkit-scrollbar-track { background: transparent; }
-          ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
-          ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+          /* Memaksa GPU Rendering untuk container utama */
+          .main-container {
+              transform: translate3d(0,0,0);
+              backface-visibility: hidden;
+          }
       `}</style>
       
-      <div style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
+      <div className="main-container" style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
         
         {/* TOPBAR */}
         <header style={{ 
-            background: "rgba(10,10,10,0.85)", /* Sedikit lebih pekat agar blur tidak berat saat scroll */
+            background: "rgba(10,10,10,0.85)", 
             backdropFilter: "blur(10px)", 
-            WebkitBackdropFilter: "blur(10px)", /* Fix blur di iOS */
+            WebkitBackdropFilter: "blur(10px)",
             borderBottom: "1px solid rgba(255,255,255,0.05)", 
             padding: isMobile ? "0 1rem" : "0 2rem", 
             height: "64px", 
@@ -216,7 +229,7 @@ export default function DashboardLayout({ children }) {
             position: "sticky", 
             top: 0, 
             zIndex: 100,
-            transform: 'translateZ(0)' /* Memaksa GPU rendering untuk header */
+            transform: 'translateZ(0)' 
         }}>
             <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
                 {isMobile ? (
@@ -291,7 +304,7 @@ export default function DashboardLayout({ children }) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -15, scale: 0.98 }}
                     transition={{ 
-                        duration: 0.5, /* Dipercepat sedikit agar terasa snappy */
+                        duration: 0.5, 
                         ease: [0.22, 1, 0.36, 1] 
                     }}
                     style={{ width: "100%", height: "100%" }}
