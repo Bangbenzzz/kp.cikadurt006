@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useMemo, CSSProperties } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
-// PERBAIKAN IMPORT DI SINI:
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
-  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck // <-- Ganti Nama Icon Lama
+  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck 
 } from "react-icons/lu";
 
 import jsPDF from "jspdf";
@@ -371,6 +370,12 @@ export default function KeuanganPage() {
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
           
+          /* FIX SCROLL DISINI */
+          .custom-scroll {
+              -webkit-overflow-scrolling: touch; /* VITAL FOR MOBILE SMOOTHNESS */
+              overscroll-behavior-y: contain; /* Prevents parent scroll chaining */
+              will-change: transform; /* Hint to browser to use GPU */
+          }
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -608,7 +613,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
     );
 };
 
-// --- COMPONENT: MONTHLY HEALTH BAR (PERBAIKAN ICON DI SINI) ---
+// --- COMPONENT: MONTHLY HEALTH BAR ---
 const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) => {
     const percentage = masuk > 0 ? (keluar / masuk) * 100 : (keluar > 0 ? 100 : 0);
     const isDanger = keluar > masuk;

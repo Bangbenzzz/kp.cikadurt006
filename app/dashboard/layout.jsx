@@ -15,7 +15,7 @@ const Modal = ({ isOpen, onClose, children, maxWidth = "600px" }) => {
   if (!isBrowser || !isOpen) return null;
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: 'blur(8px)', padding: '1rem' }}>
-      <div style={{ background: "#161616", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "1.5rem", width: "100%", maxWidth: maxWidth, maxHeight: "calc(100vh - 2rem)", overflowY: 'auto', boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: "#161616", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "1.5rem", width: "100%", maxWidth: maxWidth, maxHeight: "calc(100vh - 2rem)", overflowY: 'auto', boxShadow: "0 20px 50px rgba(0,0,0,0.5)", WebkitOverflowScrolling: 'touch' }} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>,
@@ -161,8 +161,6 @@ export default function DashboardLayout({ children }) {
     );
   };
 
-  // --- HAPUS TULISAN MEMUAT DI LAYOUT ---
-  // Return div kosong berwarna hitam saat loading awal
   if (authLoading) return <div style={{height:'100vh', width:'100%', background:'#050505'}}></div>;
 
   const showContent = !pathname.includes('/dashboard/warga') || isWargaUnlocked;
@@ -171,16 +169,44 @@ export default function DashboardLayout({ children }) {
     <>
       <style jsx global>{`
           @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); } } 
-          * { box-sizing: border-box; }
-          body { margin: 0; background: #050505; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
+          
+          /* --- FIX SMOOTH SCROLL (The Magic Sauce) --- */
+          * { 
+              box-sizing: border-box; 
+              -webkit-tap-highlight-color: transparent; /* Menghilangkan delay tap di mobile */
+          }
+          html {
+              scroll-behavior: smooth;
+              height: 100%;
+          }
+          body { 
+              margin: 0; 
+              background: #050505; 
+              color: #e0e0e0; 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+              
+              /* KUNCI SCROLL HALUS MOBILE: */
+              -webkit-overflow-scrolling: touch; 
+              overflow-y: auto;
+              overscroll-behavior-y: none; /* Mencegah efek bounce yang bikin berat */
+              text-rendering: optimizeLegibility;
+              -webkit-font-smoothing: antialiased;
+          }
+          
+          /* Custom Scrollbar Global yang lebih smooth */
+          ::-webkit-scrollbar { width: 6px; height: 6px; }
+          ::-webkit-scrollbar-track { background: transparent; }
+          ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+          ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
       `}</style>
       
       <div style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
         
         {/* TOPBAR */}
         <header style={{ 
-            background: "rgba(10,10,10,0.8)", 
-            backdropFilter: "blur(12px)", 
+            background: "rgba(10,10,10,0.85)", /* Sedikit lebih pekat agar blur tidak berat saat scroll */
+            backdropFilter: "blur(10px)", 
+            WebkitBackdropFilter: "blur(10px)", /* Fix blur di iOS */
             borderBottom: "1px solid rgba(255,255,255,0.05)", 
             padding: isMobile ? "0 1rem" : "0 2rem", 
             height: "64px", 
@@ -189,7 +215,8 @@ export default function DashboardLayout({ children }) {
             justifyContent: "space-between", 
             position: "sticky", 
             top: 0, 
-            zIndex: 100 
+            zIndex: 100,
+            transform: 'translateZ(0)' /* Memaksa GPU rendering untuk header */
         }}>
             <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
                 {isMobile ? (
@@ -229,7 +256,7 @@ export default function DashboardLayout({ children }) {
                     left: 0, 
                     width: "100%", 
                     height: "50vh", 
-                    background: "rgba(10, 10, 10, 0.9)", 
+                    background: "rgba(10, 10, 10, 0.95)", 
                     backdropFilter: "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
                     borderBottom: "1px solid rgba(255,255,255,0.1)",
@@ -264,7 +291,7 @@ export default function DashboardLayout({ children }) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -15, scale: 0.98 }}
                     transition={{ 
-                        duration: 0.8, 
+                        duration: 0.5, /* Dipercepat sedikit agar terasa snappy */
                         ease: [0.22, 1, 0.36, 1] 
                     }}
                     style={{ width: "100%", height: "100%" }}
