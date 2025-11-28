@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, CSSProperties } from "react";
-import { db, collection, onSnapshot, query, orderBy, addDoc } from "@/lib/firebase"; 
+import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
 import { 
-  LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter
+  LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
+  LuPencil, LuTrash2 
 } from "react-icons/lu";
 
-// Import Library Export
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import Swal from 'sweetalert2';
 
 // --- 1. NUCLEAR CONSOLE PATCH ---
 if (typeof window !== 'undefined') {
@@ -98,6 +99,7 @@ export default function KeuanganPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // State Form Transaksi
+  const [editId, setEditId] = useState<string | null>(null); 
   const [formData, setFormData] = useState({
       keterangan: '',
       tipe: 'masuk' as 'masuk' | 'keluar',
@@ -132,18 +134,90 @@ export default function KeuanganPage() {
       setDisplayNominal(numericString === '' ? '' : formatNumberDots(numericString));
   };
 
+  const handleOpenAdd = () => {
+      setEditId(null); 
+      setFormData({ keterangan: '', tipe: 'masuk', date: new Date().toISOString().split('T')[0] });
+      setDisplayNominal('');
+      setRealNominal(0);
+      setShowModal(true);
+  };
+
+  const handleOpenEdit = (t: Transaksi) => {
+      setEditId(t.id);
+      setFormData({ 
+          keterangan: t.keterangan, 
+          tipe: t.tipe, 
+          date: t.tanggal 
+      });
+      setRealNominal(t.nominal);
+      setDisplayNominal(formatNumberDots(t.nominal.toString()));
+      setShowModal(true);
+  };
+
+  // --- HANDLER DELETE (TANPA TOAST SUKSES) ---
+  const handleDelete = async (id: string) => {
+      // Konfirmasi tetap ada (di tengah) demi keamanan
+      const result = await Swal.fire({
+          title: 'Hapus?',
+          text: "Tidak bisa dibatalkan",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444', 
+          cancelButtonColor: '#333', 
+          confirmButtonText: 'Ya, Hapus',
+          cancelButtonText: 'Batal',
+          background: '#1a1a1a', 
+          color: '#fff',
+          iconColor: '#f59e0b',
+          reverseButtons: true,
+          width: '260px', // Ukuran kecil
+          padding: '1rem',
+          customClass: {
+            popup: 'compact-modal-popup',
+            title: 'compact-modal-title',
+            actions: 'compact-modal-actions'
+          }
+      });
+
+      if (result.isConfirmed) {
+          try {
+              await deleteDoc(doc(db, 'keuangan', id));
+              // TIDAK ADA ALERT/TOAST SUKSES DI SINI
+          } catch (error) {
+              console.error(error);
+          }
+      }
+  };
+
+  // --- HANDLER SUBMIT (TANPA TOAST SUKSES) ---
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!formData.keterangan || realNominal <= 0) { alert("Mohon lengkapi data."); return; }
+      
+      // Jika kosong, diam saja (atau boleh kasih alert kecil jika mau, tapi ini diam saja)
+      if (!formData.keterangan || realNominal <= 0) return; 
+
       setIsSubmitting(true);
       try {
-          await addDoc(collection(db, 'keuangan'), {
-              keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe,
-              tanggal: formData.date, createdAt: new Date().toISOString()
-          });
-          setFormData({ keterangan: '', tipe: 'masuk', date: new Date().toISOString().split('T')[0] });
-          setDisplayNominal(''); setRealNominal(0); setShowModal(false);
-      } catch (error) { console.error(error); alert("Gagal menyimpan."); } 
+          if (editId) {
+              await updateDoc(doc(db, 'keuangan', editId), {
+                  keterangan: formData.keterangan, 
+                  nominal: realNominal, 
+                  tipe: formData.tipe,
+                  tanggal: formData.date
+              });
+          } else {
+              await addDoc(collection(db, 'keuangan'), {
+                  keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe,
+                  tanggal: formData.date, createdAt: new Date().toISOString()
+              });
+          }
+          
+          // TIDAK ADA ALERT/TOAST SUKSES DI SINI
+          handleOpenAdd(); 
+          setShowModal(false);
+      } catch (error) { 
+          console.error(error); 
+      } 
       finally { setIsSubmitting(false); }
   };
 
@@ -152,7 +226,7 @@ export default function KeuanganPage() {
     return transaksi.filter(t => {
         const d = new Date(t.tanggal);
         const y = d.getFullYear();
-        const m = d.getMonth(); // 0-11
+        const m = d.getMonth();
 
         if (exportType === 'all') return true;
         if (exportType === 'year') return y === selectedYear;
@@ -179,10 +253,7 @@ export default function KeuanganPage() {
     const dataToExport = getFilteredData();
     const periodTitle = getExportTitle();
 
-    if (dataToExport.length === 0) {
-        alert("Tidak ada data transaksi pada periode yang dipilih.");
-        return;
-    }
+    if (dataToExport.length === 0) return; // Silent jika kosong
 
     let sumMasuk = 0;
     let sumKeluar = 0;
@@ -193,7 +264,6 @@ export default function KeuanganPage() {
     const sumSaldo = sumMasuk - sumKeluar;
 
     if (exportFormat === 'excel') {
-        // --- EXPORT EXCEL ---
         const headerData = [
             ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"],
             ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"], [],
@@ -205,7 +275,9 @@ export default function KeuanganPage() {
         ];
         const tableHeader = ["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"];
         const tableBody = dataToExport.map((t, index) => [
-            index + 1, formatDate(t.tanggal), t.keterangan,
+            (index + 1).toString(),
+            formatDate(t.tanggal), 
+            t.keterangan,
             t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-",
             t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-"
         ]);
@@ -217,10 +289,8 @@ export default function KeuanganPage() {
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
 
     } else {
-        // --- EXPORT PDF ---
-        const doc = new jsPDF();
+        const doc: any = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
-        
         try {
             const imgData = await getBase64ImageFromURL('/logo-rt.png'); 
             doc.addImage(imgData, 'PNG', 14, 10, 20, 20);
@@ -230,7 +300,6 @@ export default function KeuanganPage() {
         doc.text("KETUA RT. 02 RW. 19", pageWidth / 2, 14, { align: "center" });
         doc.text("DESA DAYEUH", pageWidth / 2, 19, { align: "center" });
         doc.text("KECAMATAN CILEUNGSI KABUPATEN BOGOR", pageWidth / 2, 24, { align: "center" });
-        
         doc.setFont("helvetica", "normal"); doc.setFontSize(8);
         doc.text("Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281", pageWidth / 2, 29, { align: "center" });
         doc.setLineWidth(0.5); doc.line(14, 32, pageWidth - 14, 32);
@@ -240,27 +309,20 @@ export default function KeuanganPage() {
         doc.setFont("helvetica", "normal"); doc.setFontSize(9);
         doc.text(`Periode: ${periodTitle}`, pageWidth / 2, 45, { align: "center" });
 
-        // Kotak Summary
         const startYSummary = 50;
         doc.setDrawColor(200); doc.setFillColor(250);
         doc.roundedRect(14, startYSummary, pageWidth - 28, 20, 1, 1, 'FD');
-
         doc.setFontSize(8); doc.setTextColor(50);
         doc.text("Total Pemasukan:", 20, startYSummary + 7);
         doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 50, startYSummary + 7);
-
         doc.setTextColor(50); doc.text("Total Pengeluaran:", 20, startYSummary + 14);
         doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 50, startYSummary + 14);
-
         doc.setTextColor(50); doc.text("Selisih/Saldo Periode:", pageWidth - 80, startYSummary + 11);
         doc.setFontSize(14); doc.setFont("helvetica", "bold");
         doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 11, { align: "right" });
 
-        // FIX: Konversi index ke string agar tidak error di AutoTable
         const tableRows = dataToExport.map((t, index) => [
-            (index + 1).toString(), // <- FIX DI SINI: Number to String
-            formatDate(t.tanggal), 
-            t.keterangan,
+            (index + 1).toString(), formatDate(t.tanggal), t.keterangan,
             t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-",
             t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-"
         ]);
@@ -269,19 +331,19 @@ export default function KeuanganPage() {
             head: [["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"]],
             body: tableRows,
             startY: startYSummary + 25,
-            theme: 'grid',
+            theme: 'striped',
             headStyles: { fillColor: [66, 103, 178], textColor: 255, fontSize: 9, halign: 'center' },
             bodyStyles: { fontSize: 9, textColor: 50 },
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 10 }, 1: { halign: 'center', cellWidth: 25 },
-                2: { halign: 'left' }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 }
-            },
-            didDrawPage: (data) => {
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 1: { halign: 'center', cellWidth: 25 }, 2: { halign: 'left' }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
+            didDrawPage: (data: any) => {
                 const pageSize = doc.internal.pageSize;
                 const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                doc.setDrawColor(200); doc.setLineWidth(0.5);
+                doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
                 doc.setFontSize(8); doc.setTextColor(150); doc.setFont("helvetica", "normal");
-                doc.text("Sistem Administrasi RT Kp. Cikadu", data.settings.margin.left, pageHeight - 10);
-                doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth - data.settings.margin.right, pageHeight - 10, { align: 'right' });
+                doc.text("Sistem Administrasi RT Kp. Cikadu", 14, pageHeight - 10);
+                doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
             }
         });
         doc.save(`Laporan_${periodTitle.replace(/ /g, '_')}.pdf`);
@@ -289,11 +351,9 @@ export default function KeuanganPage() {
     setShowExportModal(false);
   };
 
-  // --- STATS UTAMA (DASHBOARD) ---
   const stats = useMemo(() => {
     let totalMasuk = 0, totalKeluar = 0, bulanIniMasuk = 0, bulanIniKeluar = 0;
     const now = new Date();
-    
     transaksi.forEach(t => {
       const date = new Date(t.tanggal);
       const val = Number(t.nominal) || 0;
@@ -307,7 +367,6 @@ export default function KeuanganPage() {
 
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Data...</div>;
 
-  // --- DATA UNTUK DROPDOWN TAHUN (DINAMIS) ---
   const availableYears = Array.from(new Set(transaksi.map(t => new Date(t.tanggal).getFullYear()))).sort((a,b)=>b-a);
   if (!availableYears.includes(new Date().getFullYear())) availableYears.unshift(new Date().getFullYear());
 
@@ -319,6 +378,34 @@ export default function KeuanganPage() {
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+          
+          /* === STYLING KHUSUS SWEETALERT MODAL KONFIRMASI (Compact) === */
+          div:where(.swal2-container) div:where(.compact-modal-popup) {
+             border-radius: 12px !important;
+             border: 1px solid rgba(255,255,255,0.1) !important;
+          }
+          .compact-modal-title {
+             font-size: 1.1rem !important;
+             font-weight: 700 !important;
+             margin-bottom: 0.5rem !important;
+          }
+          .compact-modal-actions {
+             margin-top: 1rem !important;
+             gap: 8px !important;
+          }
+          div:where(.swal2-icon) {
+             width: 3.5em !important;
+             height: 3.5em !important;
+             margin-top: 0.5rem !important;
+             border-width: 3px !important;
+          }
+          div:where(.swal2-styled) {
+             padding: 6px 16px !important;
+             font-size: 0.85rem !important;
+             margin: 0 !important;
+             border-radius: 6px !important;
+          }
+
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
           @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
           .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -345,13 +432,10 @@ export default function KeuanganPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
-                    {/* TOMBOL BUKA MODAL EXPORT */}
                     <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
                         <LuDownload /> Export Laporan
                     </button>
-                    {/* TOMBOL TAMBAH TRANSAKSI */}
-                    {/* FIX: size menggunakan String "16" */}
-                    <button onClick={() => setShowModal(true)} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
+                    <button onClick={handleOpenAdd} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
                       <LuPlus size="16"/> Tambah Transaksi
                     </button>
                 </div>
@@ -359,7 +443,7 @@ export default function KeuanganPage() {
             
             <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
                 {transaksi.length > 0 ? transaksi.map((t, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
                         <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
                             {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
                         </div>
@@ -367,31 +451,36 @@ export default function KeuanganPage() {
                             <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.85rem', marginBottom:'2px' }}>{t.keterangan}</div>
                             <div style={{ fontSize: '0.7rem', color: '#888' }}>{formatDate(t.tanggal)}</div>
                         </div>
-                        <div style={{ fontWeight: '700', color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', fontSize: '0.85rem' }}>
-                            {t.tipe === 'masuk' ? '+' : '-'}{formatRp(t.nominal).replace('Rp ', '')}
+                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                             <div style={{ fontWeight: '700', color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', fontSize: '0.85rem' }}>
+                                {t.tipe === 'masuk' ? '+' : '-'}{formatRp(t.nominal).replace('Rp ', '')}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => handleOpenEdit(t)} title="Edit Data" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <LuPencil size="12" />
+                                </button>
+                                <button onClick={() => handleDelete(t.id)} title="Hapus Data" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <LuTrash2 size="12" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
             </div>
       </div>
 
-      {/* --- MODAL KONFIGURASI EXPORT --- */}
       {showExportModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem', animation: 'fadeIn 0.2s ease-out' }} onClick={() => setShowExportModal(false)}>
             <div style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', width: '100%', maxWidth: '380px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-                
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ margin: 0, color: '#00eaff', fontSize: '1.1rem', display:'flex', alignItems:'center', gap:'10px' }}><LuFilter/> Filter Export</h3>
-                    {/* FIX: size menggunakan String "24" */}
                     <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer' }}><LuX size="24"/></button>
                 </div>
-
                 <label style={labelStyle}>Format Dokumen</label>
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                      <button onClick={() => setExportFormat('pdf')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: exportFormat === 'pdf' ? '1px solid #ff4d4f' : '1px solid #333', background: exportFormat === 'pdf' ? 'rgba(255, 77, 79, 0.1)' : 'transparent', color: exportFormat === 'pdf' ? '#ff4d4f' : '#666', fontWeight: 'bold', cursor: 'pointer', transition:'0.2s' }}>PDF</button>
                      <button onClick={() => setExportFormat('excel')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: exportFormat === 'excel' ? '1px solid #00ff88' : '1px solid #333', background: exportFormat === 'excel' ? 'rgba(0, 255, 136, 0.1)' : 'transparent', color: exportFormat === 'excel' ? '#00ff88' : '#666', fontWeight: 'bold', cursor: 'pointer', transition:'0.2s' }}>Excel</button>
                 </div>
-
                 <label style={labelStyle}>Pilih Periode Laporan</label>
                 <select value={exportType} onChange={(e) => setExportType(e.target.value as any)} style={selectStyle}>
                     <option value="month">Laporan Bulanan</option>
@@ -399,7 +488,6 @@ export default function KeuanganPage() {
                     <option value="year">Laporan Tahunan</option>
                     <option value="all">Semua Data (Keseluruhan)</option>
                 </select>
-
                 {exportType !== 'all' && (
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', marginBottom: '1rem' }}>
                         <label style={{...labelStyle, fontSize:'0.75rem'}}>Tahun</label>
@@ -410,9 +498,7 @@ export default function KeuanganPage() {
                             <>
                                 <label style={{...labelStyle, fontSize:'0.75rem'}}>Bulan</label>
                                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} style={{...selectStyle, marginBottom: 0}}>
-                                    {["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].map((m, i) => (
-                                        <option key={i} value={i}>{m}</option>
-                                    ))}
+                                    {["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].map((m, i) => <option key={i} value={i}>{m}</option>)}
                                 </select>
                             </>
                         )}
@@ -436,13 +522,11 @@ export default function KeuanganPage() {
         </div>
       )}
 
-      {/* --- MODAL TAMBAH TRANSAKSI --- */}
       {showModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem', animation: 'fadeIn 0.2s ease-out' }} onClick={() => setShowModal(false)}>
               <div style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', width: '100%', maxWidth: '400px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.1rem' }}>Tambah Transaksi</h3>
-                      {/* FIX: size menggunakan String "24" */}
+                      <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.1rem' }}>{editId ? 'Edit Transaksi' : 'Tambah Transaksi'}</h3>
                       <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer' }}><LuX size="24"/></button>
                   </div>
                   <form onSubmit={handleSubmit}>
@@ -459,7 +543,9 @@ export default function KeuanganPage() {
                       <div><label style={labelStyle}>Nominal (Rp)</label><input type="text" inputMode="numeric" placeholder="0" value={displayNominal} onChange={handleNominalChange} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }} required /></div>
                       <div><label style={labelStyle}>Keterangan</label><input type="text" placeholder="Contoh: Iuran Warga" value={formData.keterangan} onChange={(e) => setFormData({...formData, keterangan: e.target.value})} style={inputStyle} required /></div>
                       <div><label style={labelStyle}>Tanggal Transaksi</label><input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} style={inputStyle} required /></div>
-                      <button type="submit" disabled={isSubmitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: isSubmitting ? '#444' : 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', color: isSubmitting ? '#888' : '#000', fontWeight: 'bold', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '0.5rem' }}>{isSubmitting ? <><LuLoader className="animate-spin"/> Menyimpan...</> : <><LuSave /> Simpan Transaksi</>}</button>
+                      <button type="submit" disabled={isSubmitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: isSubmitting ? '#444' : 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', color: isSubmitting ? '#888' : '#000', fontWeight: 'bold', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '0.5rem' }}>
+                        {isSubmitting ? <><LuLoader className="animate-spin"/> Menyimpan...</> : <><LuSave /> {editId ? 'Update Transaksi' : 'Simpan Transaksi'}</>}
+                      </button>
                   </form>
               </div>
           </div>
@@ -468,7 +554,6 @@ export default function KeuanganPage() {
   );
 }
 
-// --- KOMPONEN KARTU ---
 const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg, isCurrency = false }) => (
     <div style={{ background: "rgba(15,15,15,0.8)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: '12px', padding: '1rem', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0.3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><div style={{ fontSize: '0.65rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>{label}</div><div style={{ color: color, fontSize:'0.9rem', background: bg, padding:'5px', borderRadius:'6px', display:'flex' }}>{icon}</div></div>
