@@ -13,7 +13,7 @@ if (typeof window !== 'undefined') {
 }
 
 import { useState, useEffect, useMemo } from "react";
-import { db, collection, onSnapshot } from "@/lib/firebase";
+import { db, collection, onSnapshot, query, orderBy } from "@/lib/firebase"; 
 import { 
   PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -43,23 +43,28 @@ const getAgeCategory = (age) => {
     return "Lansia";
 };
 
-// --- WARNA NEON MENYALA (SOLID) ---
-const COLOR_LAKI = '#00ccff'; // Cyan Terang
-const COLOR_PEREMPUAN = '#ff0066'; // Pink Magenta Terang
-
-const COLORS_AGE = [
-    '#8b5cf6', // Ungu Terang
-    '#d946ef', // Fuchsia
-    '#06b6d4', // Cyan
-    '#10b981', // Hijau Emerald
-    '#f59e0b', // Amber
-    '#ef4444'  // Merah
-];
+// --- WARNA NEON ---
+const COLOR_LAKI = '#00ccff'; 
+const COLOR_PEREMPUAN = '#ff0066'; 
+const COLORS_AGE = ['#8b5cf6', '#d946ef', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
 const chartWrapperStyle = { width: '100%', height: '200px', position: 'relative' };
+const containerStyle = { 
+    background: "rgba(15,15,15,0.6)", 
+    border: '1px solid rgba(255,255,255,0.05)', 
+    borderRadius: '16px', 
+    padding: '1.2rem', 
+    display: 'flex', 
+    flexDirection: 'column',
+    minWidth: 0,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+};
+const headerStyle = { margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' };
+
 
 export default function DashboardHome() {
   const [warga, setWarga] = useState([]);
+  const [transaksi, setTransaksi] = useState([]); // Data Keuangan
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
@@ -68,25 +73,35 @@ export default function DashboardHome() {
   useEffect(() => {
     setIsClient(true);
     
-    // DETEKSI LAYAR UNTUK CHART
+    // DETEKSI LAYAR
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile(); // Cek saat pertama load
-    window.addEventListener('resize', checkMobile); // Cek saat di-resize
+    checkMobile(); 
+    window.addEventListener('resize', checkMobile); 
     
     const timer = setInterval(() => setTime(new Date()), 1000);
+    
+    // 1. Fetch Warga
     const unsubWarga = onSnapshot(collection(db, 'warga'), (snap) => {
         setWarga(snap.docs.map(doc => doc.data()));
-        setLoading(false);
+    });
+
+    // 2. Fetch Keuangan (Sama seperti di halaman Keuangan)
+    const qKeuangan = query(collection(db, 'keuangan'), orderBy('tanggal', 'asc'));
+    const unsubKeuangan = onSnapshot(qKeuangan, (snap) => {
+        setTransaksi(snap.docs.map(doc => doc.data()));
+        setLoading(false); 
     });
 
     return () => { 
         clearInterval(timer); 
         unsubWarga(); 
+        unsubKeuangan();
         window.removeEventListener('resize', checkMobile);
     }
   }, []);
 
   const stats = useMemo(() => {
+      // --- LOGIC WARGA ---
       const active = warga.filter(w => !w.is_dead);
       const total = active.length;
       
@@ -115,35 +130,64 @@ export default function DashboardHome() {
           return timeB - timeA; 
       }).slice(0, 5);
       
-      // DATA DENGAN BULAN LENGKAP
-      const financeData = [
-        { bulan: 'Mei', masuk: 1500000, keluar: 500000 },
-        { bulan: 'Juni', masuk: 1200000, keluar: 800000 },
-        { bulan: 'Juli', masuk: 2000000, keluar: 1500000 },
-        { bulan: 'Agustus', masuk: 1800000, keluar: 400000 },
-        { bulan: 'September', masuk: 900000, keluar: 200000 },
-        { bulan: 'Oktober', masuk: 2500000, keluar: 1000000 },
-      ];
-      const totalSaldo = 12500000; 
+      // --- LOGIC KEUANGAN (SINKRONISASI) ---
+      let totalMasuk = 0;
+      let totalKeluar = 0;
+      const monthlyStats = {};
+
+      transaksi.forEach(t => {
+          const date = new Date(t.tanggal);
+          const monthLabel = date.toLocaleString('id-ID', { month: 'short' }); // Jan, Feb...
+          // Buat key sorting YYYY-MM agar urutan bulan benar
+          const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          const val = Number(t.nominal) || 0;
+
+          // Hitung Total Saldo Real
+          if (t.tipe === 'masuk') totalMasuk += val;
+          else totalKeluar += val;
+
+          // Grouping untuk Grafik
+          if (!monthlyStats[sortKey]) {
+              monthlyStats[sortKey] = { 
+                  name: monthLabel, 
+                  masuk: 0, 
+                  keluar: 0, 
+                  rawDate: date.getTime() 
+              };
+          }
+          if (t.tipe === 'masuk') monthlyStats[sortKey].masuk += val;
+          else monthlyStats[sortKey].keluar += val;
+      });
+
+      const totalSaldo = totalMasuk - totalKeluar;
       
-      const wargaProduktif = active.filter(w => { const age = getAge(w.tgl_lahir); return age >= 15 && age <= 55; }).length;
+      // Ubah ke array, urutkan, dan ambil 6 bulan terakhir
+      const financeData = Object.keys(monthlyStats).sort().map(k => monthlyStats[k]).slice(-6);
+      
+      if (financeData.length === 0) {
+          financeData.push({ name: 'N/A', masuk: 0, keluar: 0 });
+      }
+
+      const wargaProduktif = active.filter(w => { const age = getAge(w.tgl_lahir); return age !== null && age >= 15 && age <= 55; }).length;
 
       return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
-  }, [warga]);
+  }, [warga, transaksi]);
 
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Dashboard...</div>;
+
+  const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* CSS GRID MOBILE */}
+        {/* CSS GRID */}
         <style>{`
             .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
             @media (max-width: 768px) { .stat-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; } }
         `}</style>
 
         {/* --- HEADER --- */}
-        {/* PERUBAHAN DISINI: alignItems diganti dari 'flex-end' menjadi 'center' agar sejajar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
             <div>
                 <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color:'#00eaff', fontFamily: 'monospace' }}>Kp. Cikadu RT. 02</h1>
@@ -159,57 +203,51 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS (ICON KEMBALI SEPERTI SEMULA) --- */}
+        {/* --- GRID STATS --- */}
         <div className="stat-grid">
             <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
             <CardStat icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" bg="rgba(0, 255, 136, 0.1)"/>
-            <CardStat icon={<LuWallet />} label="Saldo Kas RT" value={`Rp ${stats.totalSaldo.toLocaleString('id-ID')}`} sub="UPDATE TERKINI" color="#f59e0b" bg="rgba(245, 158, 11, 0.1)" isCurrency={true}/>
+            {/* SALDO REAL-TIME */}
+            <CardStat icon={<LuWallet />} label="Saldo Kas RT" value={formatRp(stats.totalSaldo)} sub="UPDATE TERKINI" color="#f59e0b" bg="rgba(245, 158, 11, 0.1)" isCurrency={true}/>
             <CardStat icon={<LuZap />} label="Usia Produktif" value={stats.wargaProduktif} sub="15-55 THN" color="#8b5cf6" bg="rgba(139, 92, 246, 0.1)"/>
         </div>
 
-        {/* --- GRID CHARTS (WARNA VIBRANT & XAXIS FIXED) --- */}
+        {/* --- GRID CHARTS --- */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
             
-            {/* GRAPH KEUANGAN */}
+            {/* GRAPH KEUANGAN (BERGELOMBANG & SINKRON) */}
             <div style={containerStyle}>
-                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Grafik Kas</h3>
+                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)</h3>
                 <div style={chartWrapperStyle}>
                     {isClient && (
                         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
                             <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
                                 <defs>
                                     <linearGradient id="colorMasukUnique" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#00ff88" stopOpacity={0.9}/>
-                                        <stop offset="95%" stopColor="#00ff88" stopOpacity={0.2}/>
+                                        <stop offset="5%" stopColor="#00ff88" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#00ff88" stopOpacity={0}/>
                                     </linearGradient>
                                     <linearGradient id="colorKeluarUnique" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ff0055" stopOpacity={0.9}/>
-                                        <stop offset="95%" stopColor="#ff0055" stopOpacity={0.2}/>
+                                        <stop offset="5%" stopColor="#ff0055" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#ff0055" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                                
-                                {/* 
-                                   KEY INI PENTING! 
-                                   Key berubah -> Chart Render Ulang -> Formatter Baru Dipakai
-                                */}
                                 <XAxis 
                                     key={isMobile ? 'mobile' : 'desktop'}
-                                    dataKey="bulan" 
+                                    dataKey="name" 
                                     stroke="#888" 
                                     fontSize={10} 
                                     tickLine={false} 
                                     axisLine={false} 
-                                    tickFormatter={(value) => isMobile ? value.slice(0, 3) : value}
                                 />
-
-                                <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
-                                
+                                <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000000 ? `${(val/1000000).toFixed(0)}jt` : (val/1000).toFixed(0)+'rb'} />
                                 <Tooltip 
                                     contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} 
                                     itemStyle={{ fontSize:'0.8rem', fontWeight:'600' }}
+                                    formatter={(value) => formatRp(value)}
                                 />
-
+                                {/* type="monotone" untuk gelombang halus */}
                                 <Area type="monotone" dataKey="masuk" stroke="#00ff88" strokeWidth={3} fill="url(#colorMasukUnique)" name="Pemasukan" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
                                 <Area type="monotone" dataKey="keluar" stroke="#ff0055" strokeWidth={3} fill="url(#colorKeluarUnique)" name="Pengeluaran" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
                             </AreaChart>
@@ -228,20 +266,15 @@ export default function DashboardHome() {
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
                                 <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
                                 <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
-                                
                                 <Tooltip 
                                     cursor={{fill: 'rgba(255,255,255,0.05)'}} 
                                     contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} 
                                     itemStyle={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }} 
                                     labelStyle={{ color: '#00eaff', marginBottom: '0.3rem', fontSize: '0.8rem', fontWeight:'600' }}
                                 />
-                                
                                 <Bar dataKey="jumlah" radius={[6, 6, 0, 0]}>
                                     {stats.ageData.map((entry, index) => (
-                                        <Cell 
-                                            key={`cell-age-${index}`} 
-                                            fill={COLORS_AGE[index % COLORS_AGE.length]} 
-                                        />
+                                        <Cell key={`cell-age-${index}`} fill={COLORS_AGE[index % COLORS_AGE.length]} />
                                     ))}
                                 </Bar>
                             </BarChart>
@@ -257,21 +290,11 @@ export default function DashboardHome() {
                     {isClient && (
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                                <Pie 
-                                    data={stats.genderData} 
-                                    cx="50%" cy="50%" 
-                                    innerRadius={50} outerRadius={70} 
-                                    paddingAngle={3} 
-                                    dataKey="value" 
-                                    stroke="none"
-                                >
+                                <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
                                     <Cell fill={COLOR_LAKI} />
                                     <Cell fill={COLOR_PEREMPUAN} />
                                 </Pie>
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} 
-                                    itemStyle={{ color:'#fff', fontWeight:'bold' }} 
-                                />
+                                <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} itemStyle={{ color:'#fff', fontWeight:'bold' }} />
                             </PieChart>
                         </ResponsiveContainer>
                     )}
@@ -324,7 +347,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- KOMPONEN STYLING ICON KEMBALI SEPERTI SEMULA ---
+// --- KOMPONEN KARTU ---
 const CardStat = ({ icon, label, value, sub, color, bg, isCurrency }) => (
     <div style={{ 
         background: "rgba(15,15,15,0.8)", 
@@ -344,8 +367,6 @@ const CardStat = ({ icon, label, value, sub, color, bg, isCurrency }) => (
         
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
-            
-            {/* GAYA IKON DIKEMBALIKAN: Icon Berwarna di dalam Box Tinted */}
             <div style={{ color: color, fontSize:'1rem', background: bg, padding:'6px', borderRadius:'8px', display:'flex' }}>{icon}</div>
         </div>
         
@@ -362,15 +383,3 @@ const CardStat = ({ icon, label, value, sub, color, bg, isCurrency }) => (
         </div>
     </div>
 );
-
-const containerStyle = { 
-    background: "rgba(15,15,15,0.6)", 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    borderRadius: '16px', 
-    padding: '1.2rem', 
-    display: 'flex', 
-    flexDirection: 'column',
-    minWidth: 0,
-    boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-};
-const headerStyle = { margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' };

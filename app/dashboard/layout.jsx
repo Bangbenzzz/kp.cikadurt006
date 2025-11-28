@@ -44,13 +44,13 @@ const PasswordPromptModal = ({ onVerify, onCancel, error, isLoading }) => {
     return (
         <form onSubmit={handleSubmit}>
             <h3 style={{color: '#00eaff', textAlign: 'center', marginTop: 0, fontWeight:'600'}}>🔒 Akses Terbatas</h3>
-            <p style={{textAlign: 'center', color: '#ccc', margin: '1rem 0 2rem 0', fontSize:'0.9rem'}}>Data Warga bersifat rahasia.<br/>Masukkan password Administrator.</p>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1.1rem', letterSpacing:'2px' }} autoFocus />
+            <p style={{textAlign: 'center', color: '#ccc', margin: '1rem 0 2rem 0', fontSize:'0.9rem'}}>Data Warga bersifat rahasia<br/>Masukkan password</p>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1.1rem', letterSpacing:'2px' }} autoFocus />
             {error && <p style={{color: '#ff4d4f', textAlign: 'center', marginTop: '1rem', fontSize:'0.85rem'}}>{error}</p>}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" onClick={onCancel} style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#ccc', cursor: 'pointer' }}>Batal</button>
                 <button type="submit" disabled={isLoading} style={{ padding: '0.75rem 2rem', background: 'linear-gradient(145deg, #00eaff, #0077ff)', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 'bold', cursor: 'pointer', opacity: isLoading ? 0.7 : 1, boxShadow:'0 4px 15px rgba(0, 234, 255, 0.3)' }}>
-                    {isLoading ? '...' : 'Buka Data'}
+                    {isLoading ? 'Loading...' : 'Buka Data'}
                 </button>
             </div>
         </form>
