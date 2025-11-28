@@ -161,6 +161,8 @@ export default function DashboardLayout({ children }) {
     );
   };
 
+  // --- HAPUS TULISAN MEMUAT DI LAYOUT ---
+  // Return div kosong berwarna hitam saat loading awal
   if (authLoading) return <div style={{height:'100vh', width:'100%', background:'#050505'}}></div>;
 
   const showContent = !pathname.includes('/dashboard/warga') || isWargaUnlocked;
@@ -169,57 +171,16 @@ export default function DashboardLayout({ children }) {
     <>
       <style jsx global>{`
           @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); } } 
-          
-          /* --- GLOBAL SCROLLBAR HIDING (SAFE METHOD) --- */
-          /* Ini menyembunyikan visual batang scrollbar TANPA mematikan fungsi scroll */
-          
-          /* Firefox */
-          html {
-            scrollbar-width: none;
-          }
-          
-          /* Chrome, Safari, Edge, Opera */
-          ::-webkit-scrollbar {
-            width: 0px;  /* Membuat lebarnya 0 */
-            background: transparent; /* Membuat background transparan */
-            display: none; /* Opsional: Sembunyikan total di webkit */
-          }
-
-          /* --- RESET & PERFORMANCE FIX --- */
-          * { 
-              box-sizing: border-box; 
-              -webkit-tap-highlight-color: transparent; 
-          }
-
-          body { 
-              margin: 0; 
-              background: #050505; 
-              color: #e0e0e0; 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-              
-              /* KUNCI SUPAYA TIDAK PATAH-PATAH: */
-              /* Biarkan browser menangani scroll secara native (jangan overflow: auto di body) */
-              -webkit-font-smoothing: antialiased;
-              text-rendering: optimizeLegibility;
-              
-              /* Mengaktifkan momentum scroll di iOS */
-              -webkit-overflow-scrolling: touch; 
-          }
-
-          /* Memaksa GPU Rendering untuk container utama */
-          .main-container {
-              transform: translate3d(0,0,0);
-              backface-visibility: hidden;
-          }
+          * { box-sizing: border-box; }
+          body { margin: 0; background: #050505; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
       `}</style>
       
-      <div className="main-container" style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
         
         {/* TOPBAR */}
         <header style={{ 
-            background: "rgba(10,10,10,0.85)", 
-            backdropFilter: "blur(10px)", 
-            WebkitBackdropFilter: "blur(10px)",
+            background: "rgba(10,10,10,0.8)", 
+            backdropFilter: "blur(12px)", 
             borderBottom: "1px solid rgba(255,255,255,0.05)", 
             padding: isMobile ? "0 1rem" : "0 2rem", 
             height: "64px", 
@@ -228,8 +189,7 @@ export default function DashboardLayout({ children }) {
             justifyContent: "space-between", 
             position: "sticky", 
             top: 0, 
-            zIndex: 100,
-            transform: 'translateZ(0)' 
+            zIndex: 100 
         }}>
             <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
                 {isMobile ? (
@@ -269,7 +229,7 @@ export default function DashboardLayout({ children }) {
                     left: 0, 
                     width: "100%", 
                     height: "50vh", 
-                    background: "rgba(10, 10, 10, 0.95)", 
+                    background: "rgba(10, 10, 10, 0.9)", 
                     backdropFilter: "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
                     borderBottom: "1px solid rgba(255,255,255,0.1)",
@@ -304,7 +264,7 @@ export default function DashboardLayout({ children }) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -15, scale: 0.98 }}
                     transition={{ 
-                        duration: 0.5, 
+                        duration: 0.8, 
                         ease: [0.22, 1, 0.36, 1] 
                     }}
                     style={{ width: "100%", height: "100%" }}
