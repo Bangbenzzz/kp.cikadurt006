@@ -1,6 +1,6 @@
 "use client";
 
-// --- 1. NUCLEAR CONSOLE PATCH ---
+// --- 1. NUCLEAR CONSOLE PATCH (Tetap dipertahankan) ---
 if (typeof window !== 'undefined') {
   const originalError = console.error;
   console.error = (...args) => {
@@ -116,8 +116,6 @@ export default function DashboardHome() {
       return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
   }, [warga, transaksi]);
 
-  // --- HAPUS TULISAN MEMUAT ---
-  // Jika loading, kembalikan null (kosong) agar tidak merusak layout transisi
   if (loading) return null;
 
   const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
@@ -125,14 +123,12 @@ export default function DashboardHome() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* --- STYLE FIX LAYOUT 2x2 MOBILE & HAPUS HOVER EFFECT --- */}
         <style jsx global>{`
             .stat-grid { 
                 display: grid; 
                 grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
                 gap: 1.5rem; 
             }
-            
             @media (max-width: 768px) { 
                 .stat-grid { 
                     grid-template-columns: 1fr 1fr !important; 
@@ -140,11 +136,10 @@ export default function DashboardHome() {
                 }
                 .card-inner {
                     padding: 0.8rem !important;
+                    overflow: hidden; /* MENCEGAH SCROLLBAR MUNCUL DI KARTU */
                 }
             }
 
-            /* EFEK HOVER DIHAPUS DARI CSS */
-            
             .neon-card {
                 position: relative;
                 background: #111; 
@@ -162,10 +157,7 @@ export default function DashboardHome() {
                 background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
                 filter: blur(15px); 
                 opacity: 0.5; 
-                /* Transisi dihapus agar statis */
             }
-            
-            /* Animasi hover dihapus */
 
             .card-inner {
                 background: linear-gradient(to bottom, #161616, #111);
@@ -176,6 +168,7 @@ export default function DashboardHome() {
                 flex-direction: column;
                 position: relative;
                 z-index: 2; 
+                overflow: hidden; /* PENTING: Mencegah scrollbar internal */
             }
         `}</style>
 
@@ -195,7 +188,7 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS (2x2 di Mobile, Hover Off) --- */}
+        {/* --- GRID STATS --- */}
         <div className="stat-grid">
             <div className="neon-card" style={{'--c1': '#00eaff', '--c2': '#0055ff'}}>
                 <CardInner icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
@@ -223,7 +216,8 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)
                     </h3>
-                    <div style={{ width: '100%', height: '200px' }}>
+                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
+                    <div style={{ width: '100%', height: '200px', overflow: 'hidden' }}>
                         {isClient && (
                             <ResponsiveContainer width="99%" height="100%">
                                 <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
@@ -256,7 +250,8 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#8b5cf6'}}/> Demografi Usia
                     </h3>
-                    <div style={{ width: '100%', height: '200px' }}>
+                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
+                    <div style={{ width: '100%', height: '200px', overflow: 'hidden' }}>
                         {isClient && (
                             <ResponsiveContainer width="99%" height="100%">
                                 <BarChart data={stats.ageData} margin={{top:10, right:10, left:-20, bottom:0}}>
@@ -282,7 +277,8 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender
                     </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
+                    {/* PERBAIKAN: overflow: 'hidden' ditambahkan di sini */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative', overflow: 'hidden' }}>
                         {isClient && (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -346,9 +342,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUB-KOMPONEN KARTU TANPA INTERAKSI HOVER ---
 const CardInner = ({ icon, label, value, sub, color, isCurrency }) => (
-    // Style transition & event onMouseEnter dihapus
     <div className="card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
