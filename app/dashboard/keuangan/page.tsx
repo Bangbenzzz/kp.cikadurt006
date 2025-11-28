@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useMemo, CSSProperties } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
+// PERBAIKAN IMPORT DI SINI:
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
-  LuPencil, LuTrash2 
+  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck // <-- Ganti Nama Icon Lama
 } from "react-icons/lu";
 
 import jsPDF from "jspdf";
@@ -69,12 +70,7 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
-// --- STYLES ---
-const containerStyle: CSSProperties = { 
-    background: "rgba(15,15,15,0.6)", border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.2rem', 
-    display: 'flex', flexDirection: 'column', minWidth: 0, boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-};
-
+// --- STYLES (Input Form) ---
 const inputStyle: CSSProperties = {
     width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '8px', color: '#fff', fontSize: '1rem', outline: 'none', marginBottom: '1rem'
@@ -112,8 +108,8 @@ export default function KeuanganPage() {
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [exportType, setExportType] = useState<'all' | 'year' | 'month' | 'quarter'>('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
-  const [selectedQuarter, setSelectedQuarter] = useState(1); // 1-4
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); 
+  const [selectedQuarter, setSelectedQuarter] = useState(1); 
 
   useEffect(() => {
     const q = query(collection(db, 'keuangan'), orderBy('tanggal', 'desc'));
@@ -154,12 +150,10 @@ export default function KeuanganPage() {
       setShowModal(true);
   };
 
-  // --- HANDLER DELETE (TANPA TOAST SUKSES) ---
   const handleDelete = async (id: string) => {
-      // Konfirmasi tetap ada (di tengah) demi keamanan
       const result = await Swal.fire({
           title: 'Hapus?',
-          text: "Tidak bisa dibatalkan",
+          text: "Apakah Anda yakin ingin menghapus data ini?",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444', 
@@ -170,7 +164,7 @@ export default function KeuanganPage() {
           color: '#fff',
           iconColor: '#f59e0b',
           reverseButtons: true,
-          width: '260px', // Ukuran kecil
+          width: '260px',
           padding: '1rem',
           customClass: {
             popup: 'compact-modal-popup',
@@ -182,18 +176,14 @@ export default function KeuanganPage() {
       if (result.isConfirmed) {
           try {
               await deleteDoc(doc(db, 'keuangan', id));
-              // TIDAK ADA ALERT/TOAST SUKSES DI SINI
           } catch (error) {
               console.error(error);
           }
       }
   };
 
-  // --- HANDLER SUBMIT (TANPA TOAST SUKSES) ---
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
-      // Jika kosong, diam saja (atau boleh kasih alert kecil jika mau, tapi ini diam saja)
       if (!formData.keterangan || realNominal <= 0) return; 
 
       setIsSubmitting(true);
@@ -211,8 +201,6 @@ export default function KeuanganPage() {
                   tanggal: formData.date, createdAt: new Date().toISOString()
               });
           }
-          
-          // TIDAK ADA ALERT/TOAST SUKSES DI SINI
           handleOpenAdd(); 
           setShowModal(false);
       } catch (error) { 
@@ -221,7 +209,7 @@ export default function KeuanganPage() {
       finally { setIsSubmitting(false); }
   };
 
-  // --- LOGIKA FILTER EXPORT ---
+  // --- EXPORT LOGIC ---
   const getFilteredData = () => {
     return transaksi.filter(t => {
         const d = new Date(t.tanggal);
@@ -248,12 +236,11 @@ export default function KeuanganPage() {
       return "";
   };
 
-  // --- FUNGSI EXPORT UTAMA ---
   const processExport = async () => {
     const dataToExport = getFilteredData();
     const periodTitle = getExportTitle();
 
-    if (dataToExport.length === 0) return; // Silent jika kosong
+    if (dataToExport.length === 0) return; 
 
     let sumMasuk = 0;
     let sumKeluar = 0;
@@ -311,15 +298,20 @@ export default function KeuanganPage() {
 
         const startYSummary = 50;
         doc.setDrawColor(200); doc.setFillColor(250);
-        doc.roundedRect(14, startYSummary, pageWidth - 28, 20, 1, 1, 'FD');
-        doc.setFontSize(8); doc.setTextColor(50);
-        doc.text("Total Pemasukan:", 20, startYSummary + 7);
-        doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 50, startYSummary + 7);
-        doc.setTextColor(50); doc.text("Total Pengeluaran:", 20, startYSummary + 14);
-        doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 50, startYSummary + 14);
-        doc.setTextColor(50); doc.text("Selisih/Saldo Periode:", pageWidth - 80, startYSummary + 11);
-        doc.setFontSize(14); doc.setFont("helvetica", "bold");
-        doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 11, { align: "right" });
+        doc.roundedRect(14, startYSummary, pageWidth - 28, 25, 1, 1, 'FD'); 
+        
+        doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
+        doc.text("Total Pemasukan :", 20, startYSummary + 9);
+        doc.text("Total Pengeluaran :", 20, startYSummary + 18);
+
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 60, startYSummary + 9);
+        doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 60, startYSummary + 18);
+
+        doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
+        doc.text("Selisih / Saldo Periode :", pageWidth - 95, startYSummary + 13);
+        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
+        doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 13, { align: "right" });
 
         const tableRows = dataToExport.map((t, index) => [
             (index + 1).toString(), formatDate(t.tanggal), t.keterangan,
@@ -330,7 +322,7 @@ export default function KeuanganPage() {
         autoTable(doc, {
             head: [["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"]],
             body: tableRows,
-            startY: startYSummary + 25,
+            startY: startYSummary + 30,
             theme: 'striped',
             headStyles: { fillColor: [66, 103, 178], textColor: 255, fontSize: 9, halign: 'center' },
             bodyStyles: { fontSize: 9, textColor: 50 },
@@ -365,6 +357,7 @@ export default function KeuanganPage() {
     return { totalSaldo: totalMasuk - totalKeluar, bulanIniMasuk, bulanIniKeluar, totalTransaksi: transaksi.length };
   }, [transaksi]);
 
+  // Loading text (sesuai request user tetap ada)
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Data...</div>;
 
   const availableYears = Array.from(new Set(transaksi.map(t => new Date(t.tanggal).getFullYear()))).sort((a,b)=>b-a);
@@ -372,43 +365,60 @@ export default function KeuanganPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
-      <style>{`
+      
+      {/* CSS GLOBAL UTAMA */}
+      <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
+          
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-          
-          /* === STYLING KHUSUS SWEETALERT MODAL KONFIRMASI (Compact) === */
-          div:where(.swal2-container) div:where(.compact-modal-popup) {
-             border-radius: 12px !important;
-             border: 1px solid rgba(255,255,255,0.1) !important;
+
+          .neon-card {
+            position: relative;
+            background: #111;
+            border-radius: 16px;
+            z-index: 1;
+            border: 1px solid rgba(255,255,255,0.08);
           }
-          .compact-modal-title {
-             font-size: 1.1rem !important;
-             font-weight: 700 !important;
-             margin-bottom: 0.5rem !important;
+          .neon-card::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: 16px;
+            z-index: -1;
+            background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
+            filter: blur(15px);
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
           }
-          .compact-modal-actions {
-             margin-top: 1rem !important;
-             gap: 8px !important;
-          }
-          div:where(.swal2-icon) {
-             width: 3.5em !important;
-             height: 3.5em !important;
-             margin-top: 0.5rem !important;
-             border-width: 3px !important;
-          }
-          div:where(.swal2-styled) {
-             padding: 6px 16px !important;
-             font-size: 0.85rem !important;
-             margin: 0 !important;
-             border-radius: 6px !important;
+          .card-inner {
+            background: linear-gradient(to bottom, #161616, #111);
+            border-radius: 16px;
+            padding: 1.2rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 2;
           }
 
+          /* ANIMASI HEALTH BAR */
+          @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+          }
+
+          /* SweetAlert Override */
+          div:where(.swal2-container) div:where(.compact-modal-popup) { border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+          .compact-modal-title { font-size: 1.1rem !important; font-weight: 700 !important; margin-bottom: 0.5rem !important; }
+          .compact-modal-actions { margin-top: 1rem !important; gap: 8px !important; }
+          div:where(.swal2-icon) { width: 3.5em !important; height: 3.5em !important; margin-top: 0.5rem !important; border-width: 3px !important; }
+          div:where(.swal2-styled) { padding: 6px 16px !important; font-size: 0.85rem !important; margin: 0 !important; border-radius: 6px !important; }
+          .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
           @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-          .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       {/* HEADER */}
@@ -427,48 +437,62 @@ export default function KeuanganPage() {
           <CardStat icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
       </div>
 
+      {/* --- NEW FEATURE: MONTHLY HEALTH BAR --- */}
+      <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
+
       {/* LIST RIWAYAT */}
-      <div style={{ ...containerStyle, height: 'calc(100vh - 300px)', minHeight: '400px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
-                <div style={{ display: 'flex', gap: '0.8rem' }}>
-                    <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
-                        <LuDownload /> Export Laporan
-                    </button>
-                    <button onClick={handleOpenAdd} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
-                      <LuPlus size="16"/> Tambah Transaksi
-                    </button>
-                </div>
-            </div>
-            
-            <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-                {transaksi.length > 0 ? transaksi.map((t, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
-                            {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.85rem', marginBottom:'2px' }}>{t.keterangan}</div>
-                            <div style={{ fontSize: '0.7rem', color: '#888' }}>{formatDate(t.tanggal)}</div>
-                        </div>
-                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                             <div style={{ fontWeight: '700', color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', fontSize: '0.85rem' }}>
-                                {t.tipe === 'masuk' ? '+' : '-'}{formatRp(t.nominal).replace('Rp ', '')}
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                                <button onClick={() => handleOpenEdit(t)} title="Edit Data" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <LuPencil size="12" />
-                                </button>
-                                <button onClick={() => handleDelete(t.id)} title="Hapus Data" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <LuTrash2 size="12" />
-                                </button>
-                            </div>
-                        </div>
+      <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'} as any}>
+          <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
+                    <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
+                    <span style={{fontSize: '0.7rem', color:'#666', fontStyle:'italic', marginLeft:'10px', display:'none'}}>*Menampilkan 100 data terbaru</span>
+                    <div style={{ display: 'flex', gap: '0.8rem', marginLeft: 'auto' }}>
+                        <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
+                            <LuDownload /> Export Laporan
+                        </button>
+                        <button onClick={handleOpenAdd} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
+                          <LuPlus size="16"/> Tambah
+                        </button>
                     </div>
-                )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
-            </div>
+                </div>
+                
+                <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
+                    {transaksi.length > 0 ? transaksi.slice(0, 100).map((t, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
+                                {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.85rem', marginBottom:'2px' }}>{t.keterangan}</div>
+                                <div style={{ fontSize: '0.7rem', color: '#888' }}>{formatDate(t.tanggal)}</div>
+                            </div>
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                                 <div style={{ fontWeight: '700', color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', fontSize: '0.85rem' }}>
+                                    {t.tipe === 'masuk' ? '+' : '-'}{formatRp(t.nominal).replace('Rp ', '')}
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button onClick={() => handleOpenEdit(t)} title="Edit Data" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <LuPencil size="12" />
+                                    </button>
+                                    <button onClick={() => handleDelete(t.id)} title="Hapus Data" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '4px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <LuTrash2 size="12" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
+                    
+                    {transaksi.length > 100 && (
+                        <div style={{textAlign:'center', padding:'1rem', fontSize:'0.75rem', color:'#555', borderTop:'1px solid rgba(255,255,255,0.05)', marginTop:'1rem'}}>
+                            *Hanya menampilkan 100 data terbaru.<br/>
+                            Gunakan fitur <b>Export Laporan</b> untuk melihat data lengkap.
+                        </div>
+                    )}
+                </div>
+          </div>
       </div>
 
+      {/* --- MODALS --- */}
       {showExportModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem', animation: 'fadeIn 0.2s ease-out' }} onClick={() => setShowExportModal(false)}>
             <div style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', width: '100%', maxWidth: '380px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
@@ -554,10 +578,77 @@ export default function KeuanganPage() {
   );
 }
 
-const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg, isCurrency = false }) => (
-    <div style={{ background: "rgba(15,15,15,0.8)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: '12px', padding: '1rem', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0.3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><div style={{ fontSize: '0.65rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>{label}</div><div style={{ color: color, fontSize:'0.9rem', background: bg, padding:'5px', borderRadius:'6px', display:'flex' }}>{icon}</div></div>
-        <div style={{ fontSize: isCurrency ? 'clamp(0.9rem, 4vw, 1.5rem)' : 'clamp(1.2rem, 4vw, 2rem)', fontWeight: '700', color: '#fff', lineHeight: 1.2, marginTop:'0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
-        <div style={{ fontSize: '0.65rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'4px', fontWeight:'500' }}><div style={{width:5, height:5, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> {sub}</div>
-    </div>
-);
+const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg, isCurrency = false }) => {
+    let c2 = color;
+    if (color === '#f59e0b') c2 = '#b45309'; 
+    else if (color === '#00ff88') c2 = '#059669'; 
+    else if (color === '#ef4444') c2 = '#b91c1c'; 
+    else if (color === '#00eaff') c2 = '#0077ff'; 
+
+    return (
+        <div className="neon-card" style={{'--c1': color, '--c2': c2} as any}>
+            <div className="card-inner">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
+                        {label}
+                    </div>
+                    <div style={{ color: color, fontSize:'0.9rem', background: 'rgba(255,255,255,0.05)', padding:'5px', borderRadius:'6px', display:'flex' }}>
+                        {icon}
+                    </div>
+                </div>
+                <div style={{ fontSize: isCurrency ? 'clamp(0.9rem, 4vw, 1.5rem)' : 'clamp(1.2rem, 4vw, 2rem)', fontWeight: '700', color: '#fff', lineHeight: 1.2, marginTop:'0.5rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {value}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'4px', fontWeight:'500', marginTop:'auto', paddingTop:'0.5rem' }}>
+                    <div style={{width:5, height:5, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> 
+                    {sub}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENT: MONTHLY HEALTH BAR (PERBAIKAN ICON DI SINI) ---
+const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) => {
+    const percentage = masuk > 0 ? (keluar / masuk) * 100 : (keluar > 0 ? 100 : 0);
+    const isDanger = keluar > masuk;
+    
+    const barColor = isDanger ? '#ef4444' : (percentage > 75 ? '#f59e0b' : '#00ff88');
+    const barColor2 = isDanger ? '#b91c1c' : (percentage > 75 ? '#b45309' : '#059669');
+
+    const barWidth = Math.min(percentage, 100);
+
+    return (
+        <div className="neon-card" style={{'--c1': barColor, '--c2': barColor2, marginTop:'0.5rem'} as any}>
+            <div className="card-inner" style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: '600' }}>
+                    <div style={{ color: '#fff' }}>Kesehatan Anggaran Bulan Ini</div>
+                    <div style={{ color: barColor, display:'flex', alignItems:'center', gap:'6px' }}>
+                        {/* ICON BARU */}
+                        {isDanger ? <LuTriangleAlert/> : <LuCircleCheck/>}
+                        {isDanger ? 'Defisit Anggaran!' : `${percentage.toFixed(1)}%`}
+                    </div>
+                </div>
+
+                <div style={{ height: '12px', background: 'rgba(255,255,255,0.1)', borderRadius: '50px', overflow: 'hidden', position: 'relative' }}>
+                    <div style={{
+                        height: '100%',
+                        width: `${barWidth}%`,
+                        background: `linear-gradient(90deg, ${barColor}, ${barColor2})`,
+                        borderRadius: '50px',
+                        transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        boxShadow: `0 0 10px ${barColor}`
+                    }}>
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+                            backgroundSize: '200% 100%',
+                            animation: 'shimmer 2s infinite linear'
+                        }}></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

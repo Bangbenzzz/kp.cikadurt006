@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 import { useState, useEffect, useMemo } from "react";
 import { db, collection, onSnapshot, query, orderBy } from "@/lib/firebase"; 
 import { 
-  PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar
 } from 'recharts';
 
 import { 
@@ -43,28 +43,14 @@ const getAgeCategory = (age) => {
     return "Lansia";
 };
 
-// --- WARNA NEON ---
+// --- WARNA CHART ---
 const COLOR_LAKI = '#00ccff'; 
 const COLOR_PEREMPUAN = '#ff0066'; 
 const COLORS_AGE = ['#8b5cf6', '#d946ef', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
-const chartWrapperStyle = { width: '100%', height: '200px', position: 'relative' };
-const containerStyle = { 
-    background: "rgba(15,15,15,0.6)", 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    borderRadius: '16px', 
-    padding: '1.2rem', 
-    display: 'flex', 
-    flexDirection: 'column',
-    minWidth: 0,
-    boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-};
-const headerStyle = { margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' };
-
-
 export default function DashboardHome() {
   const [warga, setWarga] = useState([]);
-  const [transaksi, setTransaksi] = useState([]); // Data Keuangan
+  const [transaksi, setTransaksi] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
@@ -72,39 +58,25 @@ export default function DashboardHome() {
   
   useEffect(() => {
     setIsClient(true);
-    
-    // DETEKSI LAYAR
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile(); 
     window.addEventListener('resize', checkMobile); 
-    
     const timer = setInterval(() => setTime(new Date()), 1000);
     
-    // 1. Fetch Warga
-    const unsubWarga = onSnapshot(collection(db, 'warga'), (snap) => {
-        setWarga(snap.docs.map(doc => doc.data()));
-    });
-
-    // 2. Fetch Keuangan (Sama seperti di halaman Keuangan)
+    // Fetch Warga & Keuangan
+    const unsubWarga = onSnapshot(collection(db, 'warga'), (snap) => setWarga(snap.docs.map(doc => doc.data())));
     const qKeuangan = query(collection(db, 'keuangan'), orderBy('tanggal', 'asc'));
     const unsubKeuangan = onSnapshot(qKeuangan, (snap) => {
         setTransaksi(snap.docs.map(doc => doc.data()));
         setLoading(false); 
     });
 
-    return () => { 
-        clearInterval(timer); 
-        unsubWarga(); 
-        unsubKeuangan();
-        window.removeEventListener('resize', checkMobile);
-    }
+    return () => { clearInterval(timer); unsubWarga(); unsubKeuangan(); window.removeEventListener('resize', checkMobile); }
   }, []);
 
   const stats = useMemo(() => {
-      // --- LOGIC WARGA ---
       const active = warga.filter(w => !w.is_dead);
       const total = active.length;
-      
       const jumlahKepalaKeluarga = active.filter(w => {
           const allStatus = [w.status_hubungan, w.shdk, w.status_keluarga, w.status, w.posisi].join(" ").toUpperCase(); 
           return allStatus.includes("KEPALA") || allStatus.includes("KK");
@@ -112,9 +84,8 @@ export default function DashboardHome() {
       const uniqueKK = new Set(active.map(w => String(w.no_kk || "").trim()).filter(k => k.length > 5)).size;
       const totalKK = jumlahKepalaKeluarga > 0 ? jumlahKepalaKeluarga : uniqueKK;
       
-      const l = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'L' || jk === 'LAKI-LAKI'; }).length;
-      const p = active.filter(w => { const jk = (w.jenis_kelamin || "").toString().toUpperCase(); return jk === 'P' || jk === 'PEREMPUAN' || jk === 'WANITA'; }).length;
-      
+      const l = active.filter(w => (w.jenis_kelamin || "").toString().toUpperCase().startsWith('L')).length;
+      const p = active.filter(w => (w.jenis_kelamin || "").toString().toUpperCase().startsWith('P') || (w.jenis_kelamin || "").toString().toUpperCase().startsWith('W')).length;
       const genderData = [ { name: 'Laki-Laki', value: l }, { name: 'Perempuan', value: p } ];
       
       const catCounts = { "Balita": 0, "Anak": 0, "Remaja": 0, "Dewasa": 0, "Lansia": 0, "Meninggal": 0 };
@@ -123,68 +94,89 @@ export default function DashboardHome() {
           else { const age = getAge(w.tgl_lahir); const c = getAgeCategory(age); if(catCounts[c] !== undefined) catCounts[c]++; }
       });
       const ageData = Object.keys(catCounts).map(key => ({ name: key, jumlah: catCounts[key] }));
-
-      const latest = [...warga].sort((a, b) => {
-          const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
-          const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
-          return timeB - timeA; 
-      }).slice(0, 5);
       
-      // --- LOGIC KEUANGAN (SINKRONISASI) ---
-      let totalMasuk = 0;
-      let totalKeluar = 0;
+      const latest = [...warga].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)).slice(0, 5);
+      
+      let totalMasuk = 0, totalKeluar = 0;
       const monthlyStats = {};
-
       transaksi.forEach(t => {
           const date = new Date(t.tanggal);
-          const monthLabel = date.toLocaleString('id-ID', { month: 'short' }); // Jan, Feb...
-          // Buat key sorting YYYY-MM agar urutan bulan benar
           const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          
+          const monthLabel = date.toLocaleString('id-ID', { month: 'short' });
           const val = Number(t.nominal) || 0;
-
-          // Hitung Total Saldo Real
-          if (t.tipe === 'masuk') totalMasuk += val;
-          else totalKeluar += val;
-
-          // Grouping untuk Grafik
-          if (!monthlyStats[sortKey]) {
-              monthlyStats[sortKey] = { 
-                  name: monthLabel, 
-                  masuk: 0, 
-                  keluar: 0, 
-                  rawDate: date.getTime() 
-              };
-          }
-          if (t.tipe === 'masuk') monthlyStats[sortKey].masuk += val;
-          else monthlyStats[sortKey].keluar += val;
+          if (t.tipe === 'masuk') totalMasuk += val; else totalKeluar += val;
+          if (!monthlyStats[sortKey]) monthlyStats[sortKey] = { name: monthLabel, masuk: 0, keluar: 0 };
+          if (t.tipe === 'masuk') monthlyStats[sortKey].masuk += val; else monthlyStats[sortKey].keluar += val;
       });
-
-      const totalSaldo = totalMasuk - totalKeluar;
-      
-      // Ubah ke array, urutkan, dan ambil 6 bulan terakhir
       const financeData = Object.keys(monthlyStats).sort().map(k => monthlyStats[k]).slice(-6);
-      
-      if (financeData.length === 0) {
-          financeData.push({ name: 'N/A', masuk: 0, keluar: 0 });
-      }
-
+      if (financeData.length === 0) financeData.push({ name: 'N/A', masuk: 0, keluar: 0 });
+      const totalSaldo = totalMasuk - totalKeluar;
       const wargaProduktif = active.filter(w => { const age = getAge(w.tgl_lahir); return age !== null && age >= 15 && age <= 55; }).length;
 
       return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
   }, [warga, transaksi]);
 
-  if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Dashboard...</div>;
+  // --- HAPUS TULISAN MEMUAT ---
+  // Jika loading, kembalikan null (kosong) agar tidak merusak layout transisi
+  if (loading) return null;
 
   const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* CSS GRID */}
-        <style>{`
-            .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
-            @media (max-width: 768px) { .stat-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; } }
+        {/* --- STYLE FIX LAYOUT 2x2 MOBILE & HAPUS HOVER EFFECT --- */}
+        <style jsx global>{`
+            .stat-grid { 
+                display: grid; 
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
+                gap: 1.5rem; 
+            }
+            
+            @media (max-width: 768px) { 
+                .stat-grid { 
+                    grid-template-columns: 1fr 1fr !important; 
+                    gap: 0.8rem; 
+                }
+                .card-inner {
+                    padding: 0.8rem !important;
+                }
+            }
+
+            /* EFEK HOVER DIHAPUS DARI CSS */
+            
+            .neon-card {
+                position: relative;
+                background: #111; 
+                border-radius: 16px;
+                z-index: 1;
+                border: 1px solid rgba(255,255,255,0.08);
+            }
+
+            .neon-card::before {
+                content: "";
+                position: absolute;
+                inset: -1px; 
+                border-radius: 16px;
+                z-index: -1;
+                background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
+                filter: blur(15px); 
+                opacity: 0.5; 
+                /* Transisi dihapus agar statis */
+            }
+            
+            /* Animasi hover dihapus */
+
+            .card-inner {
+                background: linear-gradient(to bottom, #161616, #111);
+                border-radius: 16px;
+                padding: 1.2rem;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                position: relative;
+                z-index: 2; 
+            }
         `}</style>
 
         {/* --- HEADER --- */}
@@ -203,183 +195,176 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS --- */}
+        {/* --- GRID STATS (2x2 di Mobile, Hover Off) --- */}
         <div className="stat-grid">
-            <CardStat icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
-            <CardStat icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" bg="rgba(0, 255, 136, 0.1)"/>
-            {/* SALDO REAL-TIME */}
-            <CardStat icon={<LuWallet />} label="Saldo Kas RT" value={formatRp(stats.totalSaldo)} sub="UPDATE TERKINI" color="#f59e0b" bg="rgba(245, 158, 11, 0.1)" isCurrency={true}/>
-            <CardStat icon={<LuZap />} label="Usia Produktif" value={stats.wargaProduktif} sub="15-55 THN" color="#8b5cf6" bg="rgba(139, 92, 246, 0.1)"/>
+            <div className="neon-card" style={{'--c1': '#00eaff', '--c2': '#0055ff'}}>
+                <CardInner icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
+            </div>
+            
+            <div className="neon-card" style={{'--c1': '#00ff88', '--c2': '#00aa55'}}>
+                <CardInner icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" />
+            </div>
+
+            <div className="neon-card" style={{'--c1': '#f59e0b', '--c2': '#aa4400'}}>
+                <CardInner icon={<LuWallet />} label="Saldo Kas RT" value={formatRp(stats.totalSaldo)} sub="UPDATE" color="#f59e0b" isCurrency={true} />
+            </div>
+
+            <div className="neon-card" style={{'--c1': '#8b5cf6', '--c2': '#aa00ff'}}>
+                <CardInner icon={<LuZap />} label="Usia Produktif" value={stats.wargaProduktif} sub="15-55 THN" color="#8b5cf6" />
+            </div>
         </div>
 
         {/* --- GRID CHARTS --- */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
             
-            {/* GRAPH KEUANGAN (BERGELOMBANG & SINKRON) */}
-            <div style={containerStyle}>
-                <h3 style={headerStyle}><LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)</h3>
-                <div style={chartWrapperStyle}>
-                    {isClient && (
-                        <ResponsiveContainer width="99%" height="100%" minWidth={0}>
-                            <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
-                                <defs>
-                                    <linearGradient id="colorMasukUnique" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#00ff88" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="#00ff88" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorKeluarUnique" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ff0055" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="#ff0055" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                                <XAxis 
-                                    key={isMobile ? 'mobile' : 'desktop'}
-                                    dataKey="name" 
-                                    stroke="#888" 
-                                    fontSize={10} 
-                                    tickLine={false} 
-                                    axisLine={false} 
-                                />
-                                <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000000 ? `${(val/1000000).toFixed(0)}jt` : (val/1000).toFixed(0)+'rb'} />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} 
-                                    itemStyle={{ fontSize:'0.8rem', fontWeight:'600' }}
-                                    formatter={(value) => formatRp(value)}
-                                />
-                                {/* type="monotone" untuk gelombang halus */}
-                                <Area type="monotone" dataKey="masuk" stroke="#00ff88" strokeWidth={3} fill="url(#colorMasukUnique)" name="Pemasukan" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
-                                <Area type="monotone" dataKey="keluar" stroke="#ff0055" strokeWidth={3} fill="url(#colorKeluarUnique)" name="Pengeluaran" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    )}
+            {/* CHART KEUANGAN */}
+            <div className="neon-card" style={{'--c1': '#f59e0b', '--c2': '#d97706'}}>
+                <div className="card-inner">
+                    <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                        <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)
+                    </h3>
+                    <div style={{ width: '100%', height: '200px' }}>
+                        {isClient && (
+                            <ResponsiveContainer width="99%" height="100%">
+                                <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
+                                    <defs>
+                                        <linearGradient id="colorMasukUnique" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#00ff88" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#00ff88" stopOpacity={0}/>
+                                        </linearGradient>
+                                        <linearGradient id="colorKeluarUnique" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#ff0055" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#ff0055" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000000 ? `${(val/1000000).toFixed(0)}jt` : (val/1000).toFixed(0)+'rb'} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} itemStyle={{ fontSize:'0.8rem', fontWeight:'600' }} formatter={(value) => formatRp(value)} />
+                                    <Area type="monotone" dataKey="masuk" stroke="#00ff88" strokeWidth={3} fill="url(#colorMasukUnique)" name="Pemasukan" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
+                                    <Area type="monotone" dataKey="keluar" stroke="#ff0055" strokeWidth={3} fill="url(#colorKeluarUnique)" name="Pengeluaran" activeDot={{r: 6, strokeWidth: 0, fill:'#fff'}} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* GRAPH USIA */}
-            <div style={containerStyle}>
-                <h3 style={headerStyle}><LuUsers style={{color: '#8b5cf6'}}/> Demografi Usia</h3>
-                <div style={chartWrapperStyle}>
-                    {isClient && (
-                        <ResponsiveContainer width="99%" height="100%" minWidth={0}>
-                            <BarChart data={stats.ageData} margin={{top:10, right:10, left:-20, bottom:0}}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                                <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
-                                <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
-                                <Tooltip 
-                                    cursor={{fill: 'rgba(255,255,255,0.05)'}} 
-                                    contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} 
-                                    itemStyle={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }} 
-                                    labelStyle={{ color: '#00eaff', marginBottom: '0.3rem', fontSize: '0.8rem', fontWeight:'600' }}
-                                />
-                                <Bar dataKey="jumlah" radius={[6, 6, 0, 0]}>
-                                    {stats.ageData.map((entry, index) => (
-                                        <Cell key={`cell-age-${index}`} fill={COLORS_AGE[index % COLORS_AGE.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    )}
+            {/* CHART USIA */}
+            <div className="neon-card" style={{'--c1': '#8b5cf6', '--c2': '#7c3aed'}}>
+                <div className="card-inner">
+                    <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                        <LuUsers style={{color: '#8b5cf6'}}/> Demografi Usia
+                    </h3>
+                    <div style={{ width: '100%', height: '200px' }}>
+                        {isClient && (
+                            <ResponsiveContainer width="99%" height="100%">
+                                <BarChart data={stats.ageData} margin={{top:10, right:10, left:-20, bottom:0}}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
+                                    <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
+                                    <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} itemStyle={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }} labelStyle={{ color: '#00eaff', marginBottom: '0.3rem', fontSize: '0.8rem', fontWeight:'600' }} />
+                                    <Bar dataKey="jumlah" radius={[6, 6, 0, 0]}>
+                                        {stats.ageData.map((entry, index) => (
+                                            <Cell key={`cell-age-${index}`} fill={COLORS_AGE[index % COLORS_AGE.length]} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
                 </div>
             </div>
 
-             {/* MINI CHART GENDER */}
-            <div style={containerStyle}>
-                 <h3 style={headerStyle}><LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender</h3>
-                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
-                    {isClient && (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
-                                    <Cell fill={COLOR_LAKI} />
-                                    <Cell fill={COLOR_PEREMPUAN} />
-                                </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} itemStyle={{ color:'#fff', fontWeight:'bold' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    )}
-                     <div style={{ position:'absolute', textAlign:'center', pointerEvents:'none' }}>
-                         <div style={{fontSize:'1.5rem', fontWeight:'800', color:'#fff', textShadow:'0 0 10px rgba(255,255,255,0.3)'}}>{stats.total}</div>
-                         <div style={{fontSize:'0.75rem', color:'#aaa', textTransform:'uppercase', letterSpacing:'1px'}}>Total</div>
-                     </div>
-                 </div>
-                 <div style={{ display:'flex', gap:'1rem', justifyContent:'center', marginTop:'-10px', fontSize:'0.8rem' }}>
-                    <div style={{display:'flex', alignItems:'center', gap:'6px'}}><div style={{width:10, height:10, borderRadius:'2px', background:COLOR_LAKI}}/> Laki-laki ({stats.l})</div>
-                    <div style={{display:'flex', alignItems:'center', gap:'6px'}}><div style={{width:10, height:10, borderRadius:'2px', background:COLOR_PEREMPUAN}}/> Perempuan ({stats.p})</div>
-                 </div>
+            {/* CHART GENDER */}
+            <div className="neon-card" style={{'--c1': '#0ea5e9', '--c2': '#00ccff'}}>
+                <div className="card-inner">
+                    <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                        <LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
+                        {isClient && (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
+                                        <Cell fill={COLOR_LAKI} />
+                                        <Cell fill={COLOR_PEREMPUAN} />
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', color:'#fff' }} itemStyle={{ color:'#fff', fontWeight:'bold' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
+                        <div style={{ position:'absolute', textAlign:'center', pointerEvents:'none' }}>
+                            <div style={{fontSize:'1.5rem', fontWeight:'800', color:'#fff', textShadow:'0 0 10px rgba(255,255,255,0.3)'}}>{stats.total}</div>
+                            <div style={{fontSize:'0.75rem', color:'#aaa', textTransform:'uppercase', letterSpacing:'1px'}}>Total</div>
+                        </div>
+                    </div>
+                    <div style={{ display:'flex', gap:'1rem', justifyContent:'center', marginTop:'-10px', fontSize:'0.8rem' }}>
+                        <div style={{display:'flex', alignItems:'center', gap:'6px'}}><div style={{width:10, height:10, borderRadius:'2px', background:COLOR_LAKI}}/> Laki-laki ({stats.l})</div>
+                        <div style={{display:'flex', alignItems:'center', gap:'6px'}}><div style={{width:10, height:10, borderRadius:'2px', background:COLOR_PEREMPUAN}}/> Perempuan ({stats.p})</div>
+                    </div>
+                </div>
             </div>
         </div>
 
         {/* --- DAFTAR WARGA TERBARU --- */}
-        <div style={containerStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Aktivitas Data Terbaru</h3>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.8rem' }}>
-                {stats.latest.length > 0 ? stats.latest.map((w, i) => (
-                    <div key={i} style={{ 
-                        display: 'flex', alignItems: 'center', gap: '0.8rem', 
-                        padding: '0.8rem', background: 'rgba(255,255,255,0.02)', 
-                        borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)',
-                        transition: 'background 0.2s'
-                    }}>
-                        <div style={{ 
-                            width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                            background: w.is_dead ? '#ef4444' : (w.jenis_kelamin === 'L' || w.jenis_kelamin === 'Laki-laki' ? 'linear-gradient(135deg, #00ccff, #0066ff)' : 'linear-gradient(135deg, #ff00cc, #ff3366)'),
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff', fontSize: '0.9rem',
-                            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+        <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'}}>
+            <div className="card-inner">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
+                    <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Aktivitas Data Terbaru</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.8rem' }}>
+                    {stats.latest.length > 0 ? stats.latest.map((w, i) => (
+                        <div key={i} style={{ 
+                            display: 'flex', alignItems: 'center', gap: '0.8rem', 
+                            padding: '0.8rem', background: 'rgba(255,255,255,0.02)', 
+                            borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)',
+                            transition: 'background 0.2s'
                         }}>
-                            {w.is_dead ? <LuUserX /> : (w.nama ? w.nama.charAt(0).toUpperCase() : '?')}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', color: w.is_dead ? '#ef4444' : '#fff', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {w.nama} {w.is_dead && '(Alm)'}
+                            <div style={{ 
+                                width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                                background: w.is_dead ? '#ef4444' : (w.jenis_kelamin === 'L' || w.jenis_kelamin === 'Laki-laki' ? 'linear-gradient(135deg, #00ccff, #0066ff)' : 'linear-gradient(135deg, #ff00cc, #ff3366)'),
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff', fontSize: '0.9rem',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+                            }}>
+                                {w.is_dead ? <LuUserX /> : (w.nama ? w.nama.charAt(0).toUpperCase() : '?')}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#888' }}>
-                                {w.status} • {w.is_dead ? 'Meninggal' : `${getAge(w.tgl_lahir)} Thn`}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: '600', color: w.is_dead ? '#ef4444' : '#fff', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {w.nama} {w.is_dead && '(Alm)'}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                                    {w.status} • {w.is_dead ? 'Meninggal' : `${getAge(w.tgl_lahir)} Thn`}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )) : <div style={{color:'#666', padding:'1rem', textAlign:'center', fontSize:'0.8rem', gridColumn:'1/-1'}}>Belum ada data.</div>}
+                    )) : <div style={{color:'#666', padding:'1rem', textAlign:'center', fontSize:'0.8rem', gridColumn:'1/-1'}}>Belum ada data.</div>}
+                </div>
             </div>
         </div>
     </div>
   );
 }
 
-// --- KOMPONEN KARTU ---
-const CardStat = ({ icon, label, value, sub, color, bg, isCurrency }) => (
-    <div style={{ 
-        background: "rgba(15,15,15,0.8)", 
-        border: "1px solid rgba(255,255,255,0.05)", 
-        borderRadius: '12px', 
-        padding: '1.2rem',
-        position: 'relative', 
-        overflow: 'hidden', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '0.4rem',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        cursor: 'default', 
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-    }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = color; }}
-       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}>
-        
+// --- SUB-KOMPONEN KARTU TANPA INTERAKSI HOVER ---
+const CardInner = ({ icon, label, value, sub, color, isCurrency }) => (
+    // Style transition & event onMouseEnter dihapus
+    <div className="card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
-            <div style={{ color: color, fontSize:'1rem', background: bg, padding:'6px', borderRadius:'8px', display:'flex' }}>{icon}</div>
+            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
+            <div style={{ color: color, fontSize:'0.9rem', background: `rgba(255,255,255,0.05)`, padding:'5px', borderRadius:'6px', display:'flex', boxShadow: `0 0 10px ${color}20` }}>{icon}</div>
         </div>
         
         <div style={{ 
-            fontSize: isCurrency ? 'clamp(1.1rem, 4vw, 1.8rem)' : 'clamp(1.5rem, 4vw, 2rem)', 
-            fontWeight: '700', color: '#fff', lineHeight: 1.2, marginTop:'0.2rem',
+            fontSize: isCurrency ? 'clamp(1rem, 5vw, 1.8rem)' : 'clamp(1.4rem, 5vw, 2rem)', 
+            fontWeight: '700', color: '#fff', lineHeight: 1.2, marginTop:'0.5rem',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             textShadow: '0 2px 10px rgba(0,0,0,0.5)'
         }}>
             {value}
         </div>
-        <div style={{ fontSize: '0.7rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'5px', fontWeight:'500' }}>
-            <div style={{width:6, height:6, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> {sub}
+        <div style={{ fontSize: '0.65rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'4px', fontWeight:'500', marginTop:'auto', paddingTop:'0.5rem' }}>
+            <div style={{width:5, height:5, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> {sub}
         </div>
     </div>
 );

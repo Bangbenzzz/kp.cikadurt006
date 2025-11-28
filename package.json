@@ -11,6 +11,7 @@
   "dependencies": {
     "exceljs": "^4.4.0",
     "firebase": "^12.6.0",
+    "framer-motion": "^12.23.24",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "next": "16.0.1",

@@ -6,9 +6,7 @@ import ReactDOM from "react-dom";
 import { auth } from "@/lib/firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { LuLayoutDashboard, LuUsers, LuWallet } from "react-icons/lu";
-
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+import { motion, AnimatePresence } from "framer-motion";
 
 // --- MODAL UTAMA ---
 const Modal = ({ isOpen, onClose, children, maxWidth = "600px" }) => {
@@ -120,15 +118,28 @@ export default function DashboardLayout({ children }) {
       if (pathname === '/dashboard/warga') { router.push('/dashboard'); }
   };
 
-  const NavLink = ({ item, isMobileLink = false }) => {
+  const NavLink = ({ item, isMobileLink = false, index = 0 }) => {
     const isActive = pathname === item.href;
-    const linkStyle = isMobileLink 
+    
+    let style = isMobileLink 
         ? { 
-            padding: "0.8rem 1rem", 
-            borderRadius: "8px", 
+            padding: "1rem 2rem", 
+            borderRadius: "50px", 
             background: isActive ? "rgba(0, 234, 255, 0.15)" : "transparent", 
-            color: isActive ? "#00eaff" : "#888", 
-            textDecoration: "none", display: "flex", alignItems: "center", gap: "0.8rem", border: isActive ? "1px solid rgba(0, 234, 255, 0.2)" : "1px solid transparent"
+            color: isActive ? "#00eaff" : "#bbb", 
+            textDecoration: "none", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center",
+            gap: "1rem", 
+            border: isActive ? "1px solid rgba(0, 234, 255, 0.3)" : "1px solid transparent",
+            fontWeight: isActive ? '700' : '500',
+            width: '80%', 
+            maxWidth: '300px',
+            fontSize: "1.1rem",
+            opacity: mobileSidebarOpen ? 1 : 0,
+            transform: mobileSidebarOpen ? "translateY(0)" : "translateY(30px)", 
+            transition: `all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.1 + (index * 0.1)}s, background 0.3s, border 0.3s` 
           } 
         : { 
             padding: "0.5rem 1rem", 
@@ -140,17 +151,19 @@ export default function DashboardLayout({ children }) {
 
     return (
         <Link 
-            href={item.href} onClick={handleLinkClick} style={linkStyle}
+            href={item.href} onClick={handleLinkClick} style={style}
             onMouseEnter={(e) => (!isActive && !isMobileLink) && (e.target.style.color = "#ccc")}
             onMouseLeave={(e) => (!isActive && !isMobileLink) && (e.target.style.color = "#888")}
         > 
-            <span style={{ fontSize: isMobileLink ? "1.2rem" : "1.1rem", display: 'flex' }}>{item.icon}</span> 
+            <span style={{ fontSize: isMobileLink ? "1.4rem" : "1.1rem", display: 'flex' }}>{item.icon}</span> 
             <span>{item.name}</span> 
         </Link>
     );
   };
 
-  if (authLoading) return <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#000', color:'#00eaff'}}>Memuat Sistem...</div>;
+  // --- HAPUS TULISAN MEMUAT DI LAYOUT ---
+  // Return div kosong berwarna hitam saat loading awal
+  if (authLoading) return <div style={{height:'100vh', width:'100%', background:'#050505'}}></div>;
 
   const showContent = !pathname.includes('/dashboard/warga') || isWargaUnlocked;
 
@@ -165,10 +178,27 @@ export default function DashboardLayout({ children }) {
       <div style={{ minHeight: "100vh", display: 'flex', flexDirection: 'column' }}>
         
         {/* TOPBAR */}
-        <header style={{ background: "rgba(10,10,10,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: isMobile ? "0 1rem" : "0 2rem", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
+        <header style={{ 
+            background: "rgba(10,10,10,0.8)", 
+            backdropFilter: "blur(12px)", 
+            borderBottom: "1px solid rgba(255,255,255,0.05)", 
+            padding: isMobile ? "0 1rem" : "0 2rem", 
+            height: "64px", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "space-between", 
+            position: "sticky", 
+            top: 0, 
+            zIndex: 100 
+        }}>
             <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
                 {isMobile ? (
-                    <button onClick={() => setMobileSidebarOpen(true)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>☰</button>
+                    <button onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)} style={{ 
+                        background: 'none', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer',
+                        transform: mobileSidebarOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)'
+                    }}>
+                        {mobileSidebarOpen ? '✕' : '☰'}
+                    </button>
                 ) : (
                     <h2 style={{ fontSize: "1.2rem", fontWeight: "700", letterSpacing: '1px', color:'#fff', display:'flex', alignItems:'center', gap:'0.5rem' }}>
                        <span style={{color:'#00eaff'}}>Dashboard</span>RT. 02
@@ -192,34 +222,61 @@ export default function DashboardLayout({ children }) {
 
         {/* SIDEBAR MOBILE */}
         {isMobile && (
-            <aside style={{ width: "260px", background: "#111", borderRight: "1px solid rgba(255,255,255,0.1)", padding: "2rem 1rem", display: "flex", flexDirection: "column", justifyContent: "space-between", transition: "transform 0.3s ease", position: "fixed", left: 0, top: 0, height: "100vh", transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-100%)", zIndex: 110 }}>
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', paddingLeft: '0.5rem' }}>
-                        <h2 style={{ fontSize: "1.2rem", fontWeight: "bold", color:'#fff' }}>MENU</h2>
-                        <button onClick={() => setMobileSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
-                    </div>
-                    <nav style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                        {menu.map((item) => <NavLink key={item.href} item={item} isMobileLink={true} />)}
+            <>
+                <aside style={{ 
+                    position: "fixed", 
+                    top: "64px", 
+                    left: 0, 
+                    width: "100%", 
+                    height: "50vh", 
+                    background: "rgba(10, 10, 10, 0.9)", 
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    borderBottom: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 15px 40px rgba(0,0,0,0.6)",
+                    transform: mobileSidebarOpen ? "translateY(0)" : "translateY(-150%)", 
+                    opacity: mobileSidebarOpen ? 1 : 0,
+                    transition: "transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease", 
+                    zIndex: 90, 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    padding: "1.5rem"
+                }}>
+                    <nav style={{ display: "flex", flexDirection: "column", gap: "1.2rem", alignItems: "center", justifyContent: "center", height: "100%", width: "100%" }}>
+                        {menu.map((item, i) => <NavLink key={item.href} item={item} isMobileLink={true} index={i} />)}
                     </nav>
-                </div>
-                
-                {/* --- FOOTER SIDEBAR SESUAI REQUEST --- */}
-                <div style={{ fontSize:'0.75rem', color:'#555', textAlign:'center', lineHeight:'1.5', marginTop:'auto' }}>
-                    &copy; {new Date().getFullYear()} All rights reserved <br/>
-                    <span style={{ color:'#888', fontWeight:'600' }}>FullStack Engineer - Niki Azis</span>
-                </div>
-            </aside>
+                    
+                    <div style={{ fontSize:'0.75rem', color:'#555', textAlign:'center', lineHeight:'1.5', marginTop:'auto', opacity: mobileSidebarOpen ? 1 : 0, transition: "opacity 1s ease 0.5s" }}>
+                        &copy; {new Date().getFullYear()} Dashboard RT. 02 <br/>
+                        <span style={{ color:'#00eaff', fontWeight:'600', textShadow: '0 0 10px rgba(0, 234, 255, 0.3)' }}>FullStack Engineer - Niki Azis</span>
+                    </div>
+                </aside>
+                <div onClick={() => setMobileSidebarOpen(false)} style={{ position: "fixed", inset: 0, top: "64px", background: "rgba(0,0,0,0.6)", zIndex: 89, opacity: mobileSidebarOpen ? 1 : 0, pointerEvents: mobileSidebarOpen ? "auto" : "none", transition: "opacity 0.6s ease", backdropFilter:'blur(4px)' }} />
+            </>
         )}
-        {isMobile && mobileSidebarOpen && <div onClick={() => setMobileSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 105, backdropFilter:'blur(2px)' }} />}
         
         {/* MAIN CONTENT AREA */}
-        <main style={{ padding: isMobile ? "1rem" : "2rem", width: '100%', maxWidth: '1600px', margin: '0 auto', flex: 1 }}>
-            {showContent ? children : (
-                <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'60vh', color:'#444', flexDirection:'column', gap:'1.5rem' }}>
-                    <div style={{ fontSize: '4rem', opacity:0.3 }}>🔒</div>
-                    <div style={{fontWeight:'500'}}>Konten Terkunci</div>
-                </div>
-            )}
+        <main style={{ padding: isMobile ? "1rem" : "2rem", width: '100%', maxWidth: '1600px', margin: '0 auto', flex: 1, position: 'relative' }}>
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={pathname}
+                    initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -15, scale: 0.98 }}
+                    transition={{ 
+                        duration: 0.8, 
+                        ease: [0.22, 1, 0.36, 1] 
+                    }}
+                    style={{ width: "100%", height: "100%" }}
+                >
+                    {showContent ? children : (
+                        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'60vh', color:'#444', flexDirection:'column', gap:'1.5rem' }}>
+                            <div style={{ fontSize: '4rem', opacity:0.3 }}>🔒</div>
+                            <div style={{fontWeight:'500'}}>Konten Terkunci</div>
+                        </div>
+                    )}
+                </motion.div>
+            </AnimatePresence>
         </main>
         
         <Modal isOpen={showWargaPasswordModal} onClose={handleCancelPassword} maxWidth="400px"><PasswordPromptModal onVerify={verifyWargaPassword} onCancel={handleCancelPassword} error={wargaPasswordError} isLoading={isVerifying} /></Modal>
