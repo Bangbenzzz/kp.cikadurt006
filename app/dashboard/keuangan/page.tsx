@@ -1,33 +1,16 @@
 "use client";
 
-// --- PERBAIKAN: useMemo ditambahkan di sini ---
 import React, { useState, useEffect, useMemo, CSSProperties } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
-  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck, LuChevronLeft, LuChevronRight 
+  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck 
 } from "react-icons/lu";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import Swal from 'sweetalert2';
-
-// --- TYPE DEFINITIONS ---
-interface Transaksi {
-  id: string;
-  keterangan: string;
-  nominal: number;
-  tipe: 'masuk' | 'keluar';
-  tanggal: string;
-  createdAt?: string;
-}
-
-interface FormDataState {
-  keterangan: string;
-  tipe: 'masuk' | 'keluar';
-  date: string;
-}
 
 // --- 1. NUCLEAR CONSOLE PATCH ---
 if (typeof window !== 'undefined') {
@@ -38,13 +21,32 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// --- TYPE DEFINITIONS ---
+interface Transaksi {
+  id: string;
+  tanggal: string; 
+  nominal: number;
+  tipe: 'masuk' | 'keluar';
+  keterangan: string;
+}
+
+interface CardStatProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub: string;
+  color: string;
+  bg: string;
+  isCurrency?: boolean;
+}
+
 // --- HELPER FUNCTIONS ---
-const formatRp = (num: number | string): string => "Rp " + Number(num).toLocaleString("id-ID");
-const formatRpNoSymbol = (num: number | string): string => Number(num).toLocaleString("id-ID");
-const formatDate = (date: string | number | Date): string => {
+const formatRp = (num: number | string) => "Rp " + Number(num).toLocaleString("id-ID");
+const formatRpNoSymbol = (num: number | string) => Number(num).toLocaleString("id-ID");
+const formatDate = (date: string | number | Date) => {
   return new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
-const formatNumberDots = (num: string): string => {
+const formatNumberDots = (num: string) => {
     return num.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
@@ -57,27 +59,23 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext("2d");
-      if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const dataURL = canvas.toDataURL("image/png");
-          resolve(dataURL);
-      } else {
-          reject(new Error("Canvas context is null"));
-      }
+      ctx?.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL("image/png");
+      resolve(dataURL);
     };
     img.onerror = error => reject(error);
     img.src = url;
   });
 };
 
-// --- STYLES ---
-const labelStyle: CSSProperties = {
-    display: 'block', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem', fontWeight: '500'
-};
-
+// --- STYLES (Input Form) ---
 const inputStyle: CSSProperties = {
     width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '8px', color: '#fff', fontSize: '1rem', outline: 'none', marginBottom: '1rem'
+};
+
+const labelStyle: CSSProperties = {
+    display: 'block', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem', fontWeight: '500'
 };
 
 const selectStyle: CSSProperties = {
@@ -89,28 +87,24 @@ export default function KeuanganPage() {
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  // Modal
+  // Modal States
   const [showModal, setShowModal] = useState(false); 
   const [showExportModal, setShowExportModal] = useState(false); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form
+  // State Form Transaksi
   const [editId, setEditId] = useState<string | null>(null); 
-  const [formData, setFormData] = useState<FormDataState>({
+  const [formData, setFormData] = useState({
       keterangan: '',
-      tipe: 'masuk',
+      tipe: 'masuk' as 'masuk' | 'keluar',
       date: new Date().toISOString().split('T')[0],
   });
   const [displayNominal, setDisplayNominal] = useState('');
   const [realNominal, setRealNominal] = useState(0);
 
-  // Export
+  // State Export Filter
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
-  const [exportType, setExportType] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+  const [exportType, setExportType] = useState<'all' | 'year' | 'month' | 'quarter'>('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); 
   const [selectedQuarter, setSelectedQuarter] = useState(1); 
@@ -118,23 +112,14 @@ export default function KeuanganPage() {
   useEffect(() => {
     const q = query(collection(db, 'keuangan'), orderBy('tanggal', 'desc'));
     const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaksi));
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaksi[];
       setTransaksi(data);
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  // Pagination Logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = transaksi.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(transaksi.length / itemsPerPage);
-
-  const handleNextPage = () => { if (currentPage < totalPages) setCurrentPage(prev => prev + 1); };
-  const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(prev => prev - 1); };
-
-  // Handlers
+  // --- HANDLERS (INPUT) ---
   const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       const numericString = value.replace(/\./g, '').replace(/[^0-9]/g, '');
@@ -153,7 +138,11 @@ export default function KeuanganPage() {
 
   const handleOpenEdit = (t: Transaksi) => {
       setEditId(t.id);
-      setFormData({ keterangan: t.keterangan, tipe: t.tipe, date: t.tanggal });
+      setFormData({ 
+          keterangan: t.keterangan, 
+          tipe: t.tipe, 
+          date: t.tanggal 
+      });
       setRealNominal(t.nominal);
       setDisplayNominal(formatNumberDots(t.nominal.toString()));
       setShowModal(true);
@@ -162,7 +151,7 @@ export default function KeuanganPage() {
   const handleDelete = async (id: string) => {
       const result = await Swal.fire({
           title: 'Hapus?',
-          text: "Yakin ingin menghapus data ini?",
+          text: "Apakah Anda yakin ingin menghapus data ini?",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444', 
@@ -175,22 +164,34 @@ export default function KeuanganPage() {
           reverseButtons: true,
           width: '260px',
           padding: '1rem',
-          customClass: { popup: 'compact-modal-popup', title: 'compact-modal-title', actions: 'compact-modal-actions' }
+          customClass: {
+            popup: 'compact-modal-popup',
+            title: 'compact-modal-title',
+            actions: 'compact-modal-actions'
+          }
       });
 
       if (result.isConfirmed) {
-          try { await deleteDoc(doc(db, 'keuangan', id)); } catch (error) { console.error(error); }
+          try {
+              await deleteDoc(doc(db, 'keuangan', id));
+          } catch (error) {
+              console.error(error);
+          }
       }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!formData.keterangan || realNominal <= 0) return; 
+
       setIsSubmitting(true);
       try {
           if (editId) {
               await updateDoc(doc(db, 'keuangan', editId), {
-                  keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe, tanggal: formData.date
+                  keterangan: formData.keterangan, 
+                  nominal: realNominal, 
+                  tipe: formData.tipe,
+                  tanggal: formData.date
               });
           } else {
               await addDoc(collection(db, 'keuangan'), {
@@ -198,20 +199,28 @@ export default function KeuanganPage() {
                   tanggal: formData.date, createdAt: new Date().toISOString()
               });
           }
-          handleOpenAdd(); setShowModal(false); if (!editId) setCurrentPage(1); 
-      } catch (error) { console.error(error); } 
+          handleOpenAdd(); 
+          setShowModal(false);
+      } catch (error) { 
+          console.error(error); 
+      } 
       finally { setIsSubmitting(false); }
   };
 
-  // Export Logic
+  // --- EXPORT LOGIC ---
   const getFilteredData = () => {
     return transaksi.filter(t => {
         const d = new Date(t.tanggal);
-        const y = d.getFullYear(); const m = d.getMonth();
+        const y = d.getFullYear();
+        const m = d.getMonth();
+
         if (exportType === 'all') return true;
         if (exportType === 'year') return y === selectedYear;
         if (exportType === 'month') return y === selectedYear && m === selectedMonth;
-        if (exportType === 'quarter') { const q = Math.floor(m / 3) + 1; return y === selectedYear && q === selectedQuarter; }
+        if (exportType === 'quarter') {
+            const q = Math.floor(m / 3) + 1;
+            return y === selectedYear && q === selectedQuarter;
+        }
         return true;
     }).sort((a,b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
   };
@@ -228,26 +237,50 @@ export default function KeuanganPage() {
   const processExport = async () => {
     const dataToExport = getFilteredData();
     const periodTitle = getExportTitle();
+
     if (dataToExport.length === 0) return; 
 
-    let sumMasuk = 0; let sumKeluar = 0;
-    dataToExport.forEach(t => { if (t.tipe === 'masuk') sumMasuk += Number(t.nominal); else sumKeluar += Number(t.nominal); });
+    let sumMasuk = 0;
+    let sumKeluar = 0;
+    dataToExport.forEach(t => {
+        if (t.tipe === 'masuk') sumMasuk += Number(t.nominal);
+        else sumKeluar += Number(t.nominal);
+    });
     const sumSaldo = sumMasuk - sumKeluar;
 
     if (exportFormat === 'excel') {
-        const headerData = [ ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"], ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"], [], ["LAPORAN KEUANGAN"], [`Periode: ${periodTitle}`], [], ];
-        const summaryData = [ ["Total Pemasukan:", formatRp(sumMasuk), "", "Selisih Periode:", formatRp(sumSaldo)], ["Total Pengeluaran:", formatRp(sumKeluar), "", "", ""], [] ];
+        const headerData = [
+            ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"],
+            ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"], [],
+            ["LAPORAN KEUANGAN"], [`Periode : ${periodTitle}`], [],
+        ];
+        const summaryData = [
+            ["Total Pemasukan:", formatRp(sumMasuk), "", "Selisih Periode :", formatRp(sumSaldo)],
+            ["Total Pengeluaran:", formatRp(sumKeluar), "", "", ""], []
+        ];
         const tableHeader = ["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"];
-        const tableBody = dataToExport.map((t, index) => [ (index + 1).toString(), formatDate(t.tanggal), t.keterangan, t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-", t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-" ]);
+        const tableBody = dataToExport.map((t, index) => [
+            (index + 1).toString(),
+            formatDate(t.tanggal), 
+            t.keterangan,
+            t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-",
+            t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-"
+        ]);
+
         const worksheet = XLSX.utils.aoa_to_sheet([...headerData, ...summaryData, tableHeader, ...tableBody]);
         worksheet['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 40 }, { wch: 15 }, { wch: 15 }];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
+
     } else {
-        const doc: any = new jsPDF(); 
+        const doc: any = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
-        try { const imgData = await getBase64ImageFromURL('/logo-rt.png'); doc.addImage(imgData, 'PNG', 14, 10, 20, 20); } catch (e) { }
+        try {
+            const imgData = await getBase64ImageFromURL('/logo-rt.png'); 
+            doc.addImage(imgData, 'PNG', 14, 10, 20, 20);
+        } catch (e) { console.warn("Logo missing"); }
+
         doc.setFont("helvetica", "bold"); doc.setFontSize(12);
         doc.text("KETUA RT. 02 RW. 19", pageWidth / 2, 14, { align: "center" });
         doc.text("DESA DAYEUH", pageWidth / 2, 19, { align: "center" });
@@ -255,27 +288,52 @@ export default function KeuanganPage() {
         doc.setFont("helvetica", "normal"); doc.setFontSize(8);
         doc.text("Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281", pageWidth / 2, 29, { align: "center" });
         doc.setLineWidth(0.5); doc.line(14, 32, pageWidth - 14, 32);
+
         doc.setFont("helvetica", "bold"); doc.setFontSize(11);
         doc.text("LAPORAN KEUANGAN", pageWidth / 2, 40, { align: "center" });
         doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-        doc.text(`Periode: ${periodTitle}`, pageWidth / 2, 45, { align: "center" });
+        doc.text(`Periode : ${periodTitle}`, pageWidth / 2, 45, { align: "center" });
+
         const startYSummary = 50;
-        doc.setDrawColor(200); doc.setFillColor(250); doc.roundedRect(14, startYSummary, pageWidth - 28, 25, 1, 1, 'FD'); 
+        doc.setDrawColor(200); doc.setFillColor(250);
+        doc.roundedRect(14, startYSummary, pageWidth - 28, 25, 1, 1, 'FD'); 
+        
         doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
-        doc.text("Total Pemasukan :", 20, startYSummary + 9); doc.text("Total Pengeluaran :", 20, startYSummary + 18);
-        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 60, startYSummary + 9); doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 60, startYSummary + 18);
-        doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(50); doc.text("Selisih / Saldo Periode :", pageWidth - 95, startYSummary + 13);
-        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0); doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 13, { align: "right" });
-        const tableRows = dataToExport.map((t, index) => [ (index + 1).toString(), formatDate(t.tanggal), t.keterangan, t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-", t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-" ]);
+        doc.text("Total Pemasukan :", 20, startYSummary + 9);
+        doc.text("Total Pengeluaran :", 20, startYSummary + 18);
+
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 60, startYSummary + 9);
+        doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 60, startYSummary + 18);
+
+        doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
+        doc.text("Selisih / Saldo Periode :", pageWidth - 95, startYSummary + 13);
+        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
+        doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 13, { align: "right" });
+
+        const tableRows = dataToExport.map((t, index) => [
+            (index + 1).toString(), formatDate(t.tanggal), t.keterangan,
+            t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-",
+            t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-"
+        ]);
+
         autoTable(doc, {
-            head: [["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"]], body: tableRows, startY: startYSummary + 30, theme: 'striped',
-            headStyles: { fillColor: [66, 103, 178], textColor: 255, fontSize: 9, halign: 'center' }, bodyStyles: { fontSize: 9, textColor: 50 },
+            head: [["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"]],
+            body: tableRows,
+            startY: startYSummary + 30,
+            theme: 'striped',
+            headStyles: { fillColor: [66, 103, 178], textColor: 255, fontSize: 9, halign: 'center' },
+            bodyStyles: { fontSize: 9, textColor: 50 },
             alternateRowStyles: { fillColor: [245, 245, 245] },
             columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 1: { halign: 'center', cellWidth: 25 }, 2: { halign: 'left' }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
             didDrawPage: (data: any) => {
-                const pageSize = doc.internal.pageSize; const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-                doc.setDrawColor(200); doc.setLineWidth(0.5); doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
-                doc.setFontSize(8); doc.setTextColor(150); doc.setFont("helvetica", "normal"); doc.text("Sistem Administrasi RT Kp. Cikadu", 14, pageHeight - 10); doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+                const pageSize = doc.internal.pageSize;
+                const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                doc.setDrawColor(200); doc.setLineWidth(0.5);
+                doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+                doc.setFontSize(8); doc.setTextColor(150); doc.setFont("helvetica", "normal");
+                doc.text("Sistem Administrasi RT Kp. Cikadu", 14, pageHeight - 10);
+                doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
             }
         });
         doc.save(`Laporan_${periodTitle.replace(/ /g, '_')}.pdf`);
@@ -297,6 +355,7 @@ export default function KeuanganPage() {
     return { totalSaldo: totalMasuk - totalKeluar, bulanIniMasuk, bulanIniKeluar, totalTransaksi: transaksi.length };
   }, [transaksi]);
 
+  // Loading text
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Data...</div>;
 
   const availableYears = Array.from(new Set(transaksi.map(t => new Date(t.tanggal).getFullYear()))).sort((a,b)=>b-a);
@@ -305,42 +364,35 @@ export default function KeuanganPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
-      {/* CSS GLOBAL UTAMA */}
+      {/* CSS GLOBAL UTAMA - DIPERBARUI: HAPUS GRADASI */}
       <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
           
-          /* FIX SCROLL DISINI */
           .custom-scroll {
-              -webkit-overflow-scrolling: touch; /* VITAL FOR MOBILE SMOOTHNESS */
-              overscroll-behavior-y: contain; /* Prevents parent scroll chaining */
-              will-change: transform; /* Hint to browser to use GPU */
+              -webkit-overflow-scrolling: touch; 
+              overscroll-behavior-y: contain; 
+              will-change: transform; 
           }
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-          /* NEON CARD GRADIENT */
+          /* MODIFIKASI: KARTU FLAT (SOLID) TANPA GRADASI */
           .neon-card {
             position: relative;
-            background: #111;
+            background: #111; /* Warna solid */
             border-radius: 16px;
             z-index: 1;
-            border: 1px solid rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08); /* Border tipis */
           }
+          /* HAPUS EFEK GLOW/GRADASI DI BELAKANG KARTU */
           .neon-card::before {
-            content: "";
-            position: absolute;
-            inset: -1px;
-            border-radius: 16px;
-            z-index: -1;
-            background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
-            filter: blur(15px);
-            opacity: 0.5;
-            transition: opacity 0.3s ease;
+            display: none;
           }
+          
           .card-inner {
-            background: linear-gradient(to bottom, #161616, #111);
+            background: #111; /* Background Solid, bukan Linear Gradient */
             border-radius: 16px;
             padding: 1.2rem;
             height: 100%;
@@ -350,20 +402,7 @@ export default function KeuanganPage() {
             z-index: 2;
           }
 
-          /* FIXED SCROLL MOBILE */
-          /* Class ini memastikan di HP container list tidak memicu scrollbar sendiri */
-          @media (max-width: 768px) {
-             .scroll-card-fix .card-inner {
-                 height: auto !important;
-                 min-height: 0 !important;
-             }
-             .scroll-card-fix .custom-scroll {
-                 overflow-y: visible !important;
-                 height: auto !important;
-             }
-          }
-
-          /* ANIMASI HEALTH BAR */
+          /* ANIMASI HEALTH BAR (TETAP) */
           @keyframes shimmer {
               0% { background-position: -200% 0; }
               100% { background-position: 200% 0; }
@@ -396,18 +435,17 @@ export default function KeuanganPage() {
           <CardStat icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
       </div>
 
-      {/* MONTHLY HEALTH BAR */}
+      {/* --- MONTHLY HEALTH BAR --- */}
       <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
 
-      {/* LIST RIWAYAT (Fixed: Pagination 5 per page + Scroll Fix) */}
-      <div className="neon-card scroll-card-fix" style={{'--c1': '#444', '--c2': '#666'} as React.CSSProperties}>
-          {/* Card inner height diset 'fit-content' agar tidak memaksa scroll di HP */}
-          <div className="card-inner" style={{ height: 'fit-content', minHeight: '400px' }}>
+      {/* LIST RIWAYAT */}
+      <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'} as any}>
+          <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
                     <div style={{ display: 'flex', gap: '0.8rem', marginLeft: 'auto' }}>
                         <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
-                            <LuDownload /> Export
+                            <LuDownload /> Export Laporan
                         </button>
                         <button onClick={handleOpenAdd} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
                           <LuPlus size="16"/> Tambah
@@ -415,10 +453,9 @@ export default function KeuanganPage() {
                     </div>
                 </div>
                 
-                {/* CONTENT CONTAINER */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {currentItems.length > 0 ? currentItems.map((t, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
+                <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
+                    {transaksi.length > 0 ? transaksi.slice(0, 100).map((t, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
                             <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
                                 {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
                             </div>
@@ -441,40 +478,14 @@ export default function KeuanganPage() {
                             </div>
                         </div>
                     )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
+                    
+                    {transaksi.length > 100 && (
+                        <div style={{textAlign:'center', padding:'1rem', fontSize:'0.75rem', color:'#555', borderTop:'1px solid rgba(255,255,255,0.05)', marginTop:'1rem'}}>
+                            *Hanya menampilkan 100 data terbaru.<br/>
+                            Gunakan fitur <b>Export Laporan</b> untuk melihat data lengkap.
+                        </div>
+                    )}
                 </div>
-
-                {/* PAGINATION CONTROLS */}
-                {transaksi.length > itemsPerPage && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                            Halaman {currentPage} dari {totalPages}
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button 
-                                onClick={handlePrevPage} 
-                                disabled={currentPage === 1}
-                                style={{ 
-                                    background: currentPage === 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
-                                    color: currentPage === 1 ? '#444' : '#fff', 
-                                    border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                    display: 'flex', alignItems: 'center', fontSize:'1.1rem'
-                                }}>
-                                <LuChevronLeft />
-                            </button>
-                            <button 
-                                onClick={handleNextPage} 
-                                disabled={currentPage === totalPages}
-                                style={{ 
-                                    background: currentPage === totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
-                                    color: currentPage === totalPages ? '#444' : '#fff', 
-                                    border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                                    display: 'flex', alignItems: 'center', fontSize:'1.1rem'
-                                }}>
-                                <LuChevronRight />
-                            </button>
-                        </div>
-                    </div>
-                )}
           </div>
       </div>
 
@@ -564,17 +575,6 @@ export default function KeuanganPage() {
   );
 }
 
-// --- INTERFACE CARD ---
-interface CardStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub: string;
-  color: string;
-  bg: string;
-  isCurrency?: boolean;
-}
-
 const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg, isCurrency = false }) => {
     let c2 = color;
     if (color === '#f59e0b') c2 = '#b45309'; 
@@ -583,7 +583,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
     else if (color === '#00eaff') c2 = '#0077ff'; 
 
     return (
-        <div className="neon-card" style={{'--c1': color, '--c2': c2} as React.CSSProperties}>
+        <div className="neon-card" style={{'--c1': color, '--c2': c2} as any}>
             <div className="card-inner">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ fontSize: '0.65rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
@@ -605,7 +605,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
     );
 };
 
-// --- MONTHLY HEALTH BAR ---
+// --- COMPONENT: MONTHLY HEALTH BAR ---
 const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) => {
     const percentage = masuk > 0 ? (keluar / masuk) * 100 : (keluar > 0 ? 100 : 0);
     const isDanger = keluar > masuk;
@@ -616,7 +616,7 @@ const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) 
     const barWidth = Math.min(percentage, 100);
 
     return (
-        <div className="neon-card" style={{'--c1': barColor, '--c2': barColor2, marginTop:'0.5rem'} as React.CSSProperties}>
+        <div className="neon-card" style={{'--c1': barColor, '--c2': barColor2, marginTop:'0.5rem'} as any}>
             <div className="card-inner" style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: '600' }}>
                     <div style={{ color: '#fff' }}>Kesehatan Anggaran Bulan Ini</div>
