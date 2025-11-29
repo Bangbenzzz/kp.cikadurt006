@@ -234,15 +234,15 @@ export default function DashboardLayout({ children }) {
             <>
                 <aside style={{ 
                     position: "fixed", 
-                    top: "64px", 
+                    top: "50px", 
                     left: 0, 
                     width: "100%", 
                     height: "50vh", 
                     background: "rgba(10, 10, 10, 0.9)", 
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
+                    backdropFilter: "blur(50px)",
+                    WebkitBackdropFilter: "blur(50px)",
                     borderBottom: "1px solid rgba(255,255,255,0.1)",
-                    boxShadow: "0 15px 40px rgba(0,0,0,0.6)",
+                    boxShadow: "0 15px 50px rgba(0,0,0,0.6)",
                     transform: mobileSidebarOpen ? "translateY(0)" : "translateY(-150%)", 
                     opacity: mobileSidebarOpen ? 1 : 0,
                     transition: "transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease", 
@@ -251,13 +251,13 @@ export default function DashboardLayout({ children }) {
                     flexDirection: "column", 
                     padding: "1.5rem"
                 }}>
-                    <nav style={{ display: "flex", flexDirection: "column", gap: "1.2rem", alignItems: "center", justifyContent: "center", height: "100%", width: "100%" }}>
+                    <nav style={{ display: "flex", flexDirection: "column", gap: "0.75rem", alignItems: "center", justifyContent: "center", height: "100%", width: "100%" }}>
                         {menu.map((item, i) => <NavLink key={item.href} item={item} isMobileLink={true} index={i} />)}
                     </nav>
                     
-                    <div style={{ fontSize:'0.75rem', color:'#555', textAlign:'center', lineHeight:'1.5', marginTop:'auto', opacity: mobileSidebarOpen ? 1 : 0, transition: "opacity 1s ease 0.5s" }}>
-                        &copy; {new Date().getFullYear()} Dashboard RT. 02 <br/>
-                        <span style={{ color:'#00eaff', fontWeight:'600', textShadow: '0 0 10px rgba(0, 234, 255, 0.3)' }}>FullStack Engineer - Niki Azis</span>
+                    <div style={{ fontSize:'0.80rem', color:'#555', textAlign:'center', lineHeight:'1.5', marginTop:'auto', opacity: mobileSidebarOpen ? 1 : 0, transition: "opacity 1s ease 0.8s" }}>
+                        &copy; {new Date().getFullYear()} KP. CIKADU RT. 02 RW. 19 <br/>
+                        <span style={{ color:'#00eaff', fontWeight:'600', textShadow: '0 0 10px rgba(0, 234, 255, 0.3)' }}>FULLSTACK ENGINEER - NIKI AZIS</span>
                     </div>
                 </aside>
                 <div onClick={() => setMobileSidebarOpen(false)} style={{ position: "fixed", inset: 0, top: "64px", background: "rgba(0,0,0,0.6)", zIndex: 89, opacity: mobileSidebarOpen ? 1 : 0, pointerEvents: mobileSidebarOpen ? "auto" : "none", transition: "opacity 0.6s ease", backdropFilter:'blur(4px)' }} />
