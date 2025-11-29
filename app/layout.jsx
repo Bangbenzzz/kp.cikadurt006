@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -12,7 +11,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Sistem Admin RT",
   description: "Sistem Administrasi Warga Kp. Cikadu",
   // Metadata khusus untuk mencegah caching
@@ -23,12 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-// PERBAIKAN DI SINI: Menambahkan tipe data untuk 'children'
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }) {
   return (
     <html lang="id">
       <head>

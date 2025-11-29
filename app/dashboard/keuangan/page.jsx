@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, CSSProperties } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
@@ -15,42 +15,23 @@ import Swal from 'sweetalert2';
 // --- 1. NUCLEAR CONSOLE PATCH ---
 if (typeof window !== 'undefined') {
   const originalError = console.error;
-  console.error = (...args: any[]) => {
+  console.error = (...args) => {
     if (/defaultProps/.test(args[0])) return;
     originalError.call(console, ...args);
   };
 }
 
-// --- TYPE DEFINITIONS ---
-interface Transaksi {
-  id: string;
-  tanggal: string; 
-  nominal: number;
-  tipe: 'masuk' | 'keluar';
-  keterangan: string;
-}
-
-interface CardStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub: string;
-  color: string;
-  bg: string;
-  isCurrency?: boolean;
-}
-
 // --- HELPER FUNCTIONS ---
-const formatRp = (num: number | string) => "Rp " + Number(num).toLocaleString("id-ID");
-const formatRpNoSymbol = (num: number | string) => Number(num).toLocaleString("id-ID");
-const formatDate = (date: string | number | Date) => {
+const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
+const formatRpNoSymbol = (num) => Number(num).toLocaleString("id-ID");
+const formatDate = (date) => {
   return new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
-const formatNumberDots = (num: string) => {
+const formatNumberDots = (num) => {
     return num.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
-const getBase64ImageFromURL = (url: string): Promise<string> => {
+const getBase64ImageFromURL = (url) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.setAttribute("crossOrigin", "anonymous");
@@ -69,22 +50,22 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
 };
 
 // --- STYLES (Input Form) ---
-const inputStyle: CSSProperties = {
+const inputStyle = {
     width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '8px', color: '#fff', fontSize: '1rem', outline: 'none', marginBottom: '1rem'
 };
 
-const labelStyle: CSSProperties = {
+const labelStyle = {
     display: 'block', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem', fontWeight: '500'
 };
 
-const selectStyle: CSSProperties = {
+const selectStyle = {
     width: '100%', padding: '12px', background: '#222', border: '1px solid #444',
     borderRadius: '8px', color: '#fff', fontSize: '0.9rem', outline: 'none', cursor: 'pointer', marginBottom: '1rem'
 };
 
 export default function KeuanganPage() {
-  const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
+  const [transaksi, setTransaksi] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Modal States
@@ -93,18 +74,18 @@ export default function KeuanganPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // State Form Transaksi
-  const [editId, setEditId] = useState<string | null>(null); 
+  const [editId, setEditId] = useState(null); 
   const [formData, setFormData] = useState({
       keterangan: '',
-      tipe: 'masuk' as 'masuk' | 'keluar',
+      tipe: 'masuk',
       date: new Date().toISOString().split('T')[0],
   });
   const [displayNominal, setDisplayNominal] = useState('');
   const [realNominal, setRealNominal] = useState(0);
 
   // State Export Filter
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
-  const [exportType, setExportType] = useState<'all' | 'year' | 'month' | 'quarter'>('month');
+  const [exportFormat, setExportFormat] = useState('pdf');
+  const [exportType, setExportType] = useState('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); 
   const [selectedQuarter, setSelectedQuarter] = useState(1); 
@@ -112,7 +93,7 @@ export default function KeuanganPage() {
   useEffect(() => {
     const q = query(collection(db, 'keuangan'), orderBy('tanggal', 'desc'));
     const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaksi[];
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTransaksi(data);
       setLoading(false);
     });
@@ -120,7 +101,7 @@ export default function KeuanganPage() {
   }, []);
 
   // --- HANDLERS (INPUT) ---
-  const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNominalChange = (e) => {
       const value = e.target.value;
       const numericString = value.replace(/\./g, '').replace(/[^0-9]/g, '');
       const numberValue = parseInt(numericString || '0', 10);
@@ -136,7 +117,7 @@ export default function KeuanganPage() {
       setShowModal(true);
   };
 
-  const handleOpenEdit = (t: Transaksi) => {
+  const handleOpenEdit = (t) => {
       setEditId(t.id);
       setFormData({ 
           keterangan: t.keterangan, 
@@ -148,7 +129,7 @@ export default function KeuanganPage() {
       setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id) => {
       const result = await Swal.fire({
           title: 'Hapus?',
           text: "Apakah Anda yakin ingin menghapus data ini?",
@@ -180,7 +161,7 @@ export default function KeuanganPage() {
       }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
       e.preventDefault();
       if (!formData.keterangan || realNominal <= 0) return; 
 
@@ -252,10 +233,10 @@ export default function KeuanganPage() {
         const headerData = [
             ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"],
             ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"], [],
-            ["LAPORAN KEUANGAN"], [`Periode : ${periodTitle}`], [],
+            ["LAPORAN KEUANGAN"], [`Periode: ${periodTitle}`], [],
         ];
         const summaryData = [
-            ["Total Pemasukan:", formatRp(sumMasuk), "", "Selisih Periode :", formatRp(sumSaldo)],
+            ["Total Pemasukan:", formatRp(sumMasuk), "", "Selisih Periode:", formatRp(sumSaldo)],
             ["Total Pengeluaran:", formatRp(sumKeluar), "", "", ""], []
         ];
         const tableHeader = ["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"];
@@ -274,7 +255,7 @@ export default function KeuanganPage() {
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
 
     } else {
-        const doc: any = new jsPDF();
+        const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         try {
             const imgData = await getBase64ImageFromURL('/logo-rt.png'); 
@@ -326,7 +307,7 @@ export default function KeuanganPage() {
             bodyStyles: { fontSize: 9, textColor: 50 },
             alternateRowStyles: { fillColor: [245, 245, 245] },
             columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 1: { halign: 'center', cellWidth: 25 }, 2: { halign: 'left' }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
-            didDrawPage: (data: any) => {
+            didDrawPage: (data) => {
                 const pageSize = doc.internal.pageSize;
                 const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
                 doc.setDrawColor(200); doc.setLineWidth(0.5);
@@ -439,7 +420,7 @@ export default function KeuanganPage() {
       <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
 
       {/* LIST RIWAYAT */}
-      <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'} as any}>
+      <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'}}>
           <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
@@ -503,7 +484,7 @@ export default function KeuanganPage() {
                      <button onClick={() => setExportFormat('excel')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: exportFormat === 'excel' ? '1px solid #00ff88' : '1px solid #333', background: exportFormat === 'excel' ? 'rgba(0, 255, 136, 0.1)' : 'transparent', color: exportFormat === 'excel' ? '#00ff88' : '#666', fontWeight: 'bold', cursor: 'pointer', transition:'0.2s' }}>Excel</button>
                 </div>
                 <label style={labelStyle}>Pilih Periode Laporan</label>
-                <select value={exportType} onChange={(e) => setExportType(e.target.value as any)} style={selectStyle}>
+                <select value={exportType} onChange={(e) => setExportType(e.target.value)} style={selectStyle}>
                     <option value="month">Laporan Bulanan</option>
                     <option value="quarter">Laporan Triwulan (3 Bulan)</option>
                     <option value="year">Laporan Tahunan</option>
@@ -575,7 +556,7 @@ export default function KeuanganPage() {
   );
 }
 
-const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg, isCurrency = false }) => {
+const CardStat = ({ icon, label, value, sub, color, bg, isCurrency = false }) => {
     let c2 = color;
     if (color === '#f59e0b') c2 = '#b45309'; 
     else if (color === '#00ff88') c2 = '#059669'; 
@@ -583,7 +564,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
     else if (color === '#00eaff') c2 = '#0077ff'; 
 
     return (
-        <div className="neon-card" style={{'--c1': color, '--c2': c2} as any}>
+        <div className="neon-card" style={{'--c1': color, '--c2': c2}}>
             <div className="card-inner">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ fontSize: '0.65rem', color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
@@ -606,7 +587,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
 };
 
 // --- COMPONENT: MONTHLY HEALTH BAR ---
-const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) => {
+const MonthlyHealthBar = ({ masuk, keluar }) => {
     const percentage = masuk > 0 ? (keluar / masuk) * 100 : (keluar > 0 ? 100 : 0);
     const isDanger = keluar > masuk;
     
@@ -616,7 +597,7 @@ const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) 
     const barWidth = Math.min(percentage, 100);
 
     return (
-        <div className="neon-card" style={{'--c1': barColor, '--c2': barColor2, marginTop:'0.5rem'} as any}>
+        <div className="neon-card" style={{'--c1': barColor, '--c2': barColor2, marginTop:'0.5rem'}}>
             <div className="card-inner" style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: '600' }}>
                     <div style={{ color: '#fff' }}>Kesehatan Anggaran Bulan Ini</div>

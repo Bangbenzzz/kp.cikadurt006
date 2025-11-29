@@ -43,7 +43,7 @@ const PasswordPromptModal = ({ onVerify, onCancel, error, isLoading }) => {
         <form onSubmit={handleSubmit}>
             <h3 style={{color: '#00eaff', textAlign: 'center', marginTop: 0, fontWeight:'600'}}>🔒 Akses Terbatas</h3>
             <p style={{textAlign: 'center', color: '#ccc', margin: '1rem 0 2rem 0', fontSize:'0.9rem'}}>Data Warga bersifat rahasia<br/>Masukkan password</p>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1.1rem', letterSpacing:'2px' }} autoFocus />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1rem', letterSpacing:'2px' }} autoFocus />
             {error && <p style={{color: '#ff4d4f', textAlign: 'center', marginTop: '1rem', fontSize:'0.85rem'}}>{error}</p>}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" onClick={onCancel} style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#ccc', cursor: 'pointer' }}>Batal</button>
@@ -118,6 +118,14 @@ export default function DashboardLayout({ children }) {
       if (pathname === '/dashboard/warga') { router.push('/dashboard'); }
   };
 
+  // --- LOGIC DISPLAY NAMA (Sesuai Request) ---
+  const getDisplayName = (email) => {
+    if (!email) return '';
+    if (email === 'elzaadm@rt.com') return 'ELZA ADHA SHAHILLA';
+    if (email === 'dedisuryadi@ketuart.com') return 'DEDI SURYADI';
+    return email; 
+  };
+
   const NavLink = ({ item, isMobileLink = false, index = 0 }) => {
     const isActive = pathname === item.href;
     
@@ -161,8 +169,6 @@ export default function DashboardLayout({ children }) {
     );
   };
 
-  // --- HAPUS TULISAN MEMUAT DI LAYOUT ---
-  // Return div kosong berwarna hitam saat loading awal
   if (authLoading) return <div style={{height:'100vh', width:'100%', background:'#050505'}}></div>;
 
   const showContent = !pathname.includes('/dashboard/warga') || isWargaUnlocked;
@@ -214,7 +220,10 @@ export default function DashboardLayout({ children }) {
             <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ width: '8px', height: '8px', background: '#00ff88', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
-                    <span style={{ fontWeight: '500', color: '#888', fontSize: '0.85rem' }}>{user ? user.email : ''}</span>
+                    {/* BAGIAN YANG DIUBAH: MENAMPILKAN NAMA SESUAI EMAIL */}
+                    <span style={{ fontWeight: '500', color: '#888', fontSize: '0.85rem' }}>
+                        {user ? getDisplayName(user.email) : ''}
+                    </span>
                 </div>
                 <button onClick={() => setShowLogoutConfirm(true)} style={{ background: 'transparent', border: '1px solid #333', color: '#ff4d4f', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize:'0.8rem', transition: 'all 0.2s' }}>Keluar</button>
             </div>
