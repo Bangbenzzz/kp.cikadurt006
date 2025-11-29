@@ -35,40 +35,66 @@ const ConfirmationModal = ({ onConfirm, onCancel, title, message, confirmText, c
     </div>
 );
 
-// --- MODAL PASSWORD (YANG DIUBAH AGAR TIDAK MUNCUL POPUP) ---
+// --- MODAL PASSWORD (ANTI POP-UP CHROME: JURUS FINAL) ---
 const PasswordPromptModal = ({ onVerify, onCancel, error, isLoading }) => {
     const [password, setPassword] = useState('');
-    const handleSubmit = (e) => { e.preventDefault(); onVerify(password); };
+
+    // Karena kita menghapus tag <form>, kita harus handle tombol Enter manual
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onVerify(password);
+        }
+    };
+
     return (
-        // TRIK 1: Matikan autocomplete di form
-        <form onSubmit={handleSubmit} autoComplete="off">
+        // TRIK 1: Ganti <form> jadi <div> agar Chrome tidak mendeteksi event 'submit'
+        <div style={{ width: '100%' }}>
             <h3 style={{color: '#00eaff', textAlign: 'center', marginTop: 0, fontWeight:'600'}}>🔒 Akses Terbatas</h3>
             <p style={{textAlign: 'center', color: '#ccc', margin: '1rem 0 2rem 0', fontSize:'0.9rem'}}>Data Warga bersifat rahasia<br/>Masukkan password</p>
             
-            {/* TRIK 2: Input pancingan tersembunyi biar Chrome bingung */}
-            <input type="text" name="fake_username_hide" style={{display: 'none'}} />
-            <input type="password" name="fake_password_hide" style={{display: 'none'}} />
-
             <input 
-                type="password" 
-                // TRIK 3: Gunakan new-password dan name acak
-                name="warga_security_code_rt"
-                autoComplete="new-password"
+                // TRIK 2: Pakai type="text" bukan "password". Chrome tidak akan simpan sandi untuk text biasa.
+                type="text" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
+                onKeyDown={handleKeyDown} // Handle Enter key
                 placeholder="Masukkan password" 
-                style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1rem', letterSpacing:'2px' }} 
+                style={{ 
+                    width: '100%', 
+                    padding: '0.8rem', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    color: '#fff', 
+                    borderRadius: '8px', 
+                    outline: 'none', 
+                    textAlign: 'center', 
+                    fontSize:'1rem', 
+                    letterSpacing:'2px',
+                    // TRIK 3: Ini kuncinya! Membuat text biasa terlihat seperti titik-titik password
+                    WebkitTextSecurity: 'disc', 
+                    MozTextSecurity: 'circle', // Fallback untuk browser lain (opsional)
+                }} 
                 autoFocus 
+                autoComplete="off"
             />
             
             {error && <p style={{color: '#ff4d4f', textAlign: 'center', marginTop: '1rem', fontSize:'0.85rem'}}>{error}</p>}
+            
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" onClick={onCancel} style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#ccc', cursor: 'pointer' }}>Batal</button>
-                <button type="submit" disabled={isLoading} style={{ padding: '0.75rem 2rem', background: 'linear-gradient(145deg, #00eaff, #0077ff)', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 'bold', cursor: 'pointer', opacity: isLoading ? 0.7 : 1, boxShadow:'0 4px 15px rgba(0, 234, 255, 0.3)' }}>
+                
+                {/* Tombol type="button" agar tidak dianggap submit */}
+                <button 
+                    type="button" 
+                    onClick={() => onVerify(password)}
+                    disabled={isLoading} 
+                    style={{ padding: '0.75rem 2rem', background: 'linear-gradient(145deg, #00eaff, #0077ff)', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 'bold', cursor: 'pointer', opacity: isLoading ? 0.7 : 1, boxShadow:'0 4px 15px rgba(0, 234, 255, 0.3)' }}
+                >
                     {isLoading ? 'Loading...' : 'Buka Data'}
                 </button>
             </div>
-        </form>
+        </div>
     );
 };
 
@@ -305,7 +331,7 @@ export default function DashboardLayout({ children }) {
         </main>
         
         <Modal isOpen={showWargaPasswordModal} onClose={handleCancelPassword} maxWidth="400px"><PasswordPromptModal onVerify={verifyWargaPassword} onCancel={handleCancelPassword} error={wargaPasswordError} isLoading={isVerifying} /></Modal>
-        <Modal isOpen={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)} maxWidth="350px"><ConfirmationModal onConfirm={handleLogout} onCancel={() => setShowLogoutConfirm(false)} title="Logout" message="Akhiri sesi administrator?" confirmText="Ya, Logout" confirmStyle={{ padding: '0.75rem 1.5rem', background: '#ff4d4f', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer', boxShadow:'0 4px 15px rgba(255, 77, 79, 0.3)' }} /></Modal>
+        <Modal isOpen={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)} maxWidth="350px"><ConfirmationModal onConfirm={handleLogout} onCancel={() => setShowLogoutConfirm(false)} title="Logout" message="Apakah Anda Yakin Ingin Keluar?" confirmText="Ya, Logout" confirmStyle={{ padding: '0.75rem 1.5rem', background: '#ff4d4f', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer', boxShadow:'0 4px 15px rgba(255, 77, 79, 0.3)' }} /></Modal>
       </div>
     </>
   );

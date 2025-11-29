@@ -1,16 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-// Import Auth Firebase
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../lib/firebase";
+import { auth } from "../../lib/firebase"; // Pastikan path ini sesuai dengan struktur folder Anda
 
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  
+  // State untuk tombol Show/Hide (sekarang memanipulasi text-security)
+  const [isMasked, setIsMasked] = useState(true);
   const year = new Date().getFullYear();
 
   const handleSubmit = async (e) => {
@@ -19,9 +20,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // LOGIC LOGIN AMAN FIREBASE
       await signInWithEmailAndPassword(auth, form.email, form.password);
-      // Jika berhasil, Firebase otomatis simpan sesi, kita cuma perlu redirect
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
@@ -61,9 +60,9 @@ export default function LoginPage() {
         }}
       />
 
+      {/* TRIK ANTI POP-UP: Form tetap ada untuk handle Enter key, tapi autocomplete dimatikan total */}
       <form
         onSubmit={handleSubmit}
-        // TRIK 1: Matikan autocomplete di level form
         autoComplete="off"
         style={{
           position: "relative", zIndex: 1,
@@ -91,13 +90,12 @@ export default function LoginPage() {
             Email
           </label>
           <input
-            type="email"
-            name="email_rtsystem_random" // Ubah name agar tidak terdeteksi standard (opsional tapi membantu)
+            type="email" // Email tetap type email tidak apa-apa
+            name="email_login_rt" // Nama acak
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             placeholder="Masukan Email"
             required
-            // TRIK 2: Matikan autocomplete di email juga
             autoComplete="off"
             style={{
               background: "rgba(0,0,0,0.6)", border: "1px solid #222",
@@ -109,39 +107,47 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Field Password */}
+        {/* Field Password (JURUS NUKLIR) */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <label style={{ fontSize: ".9rem", color: "#aaa", marginBottom: "0.3rem" }}>
             Password
           </label>
           <div style={{ position: "relative", width: "100%" }}>
+            
+            {/* Input Pancingan (Hidden) */}
+            <input type="text" style={{display: "none"}} />
+            <input type="password" style={{display: "none"}} />
+
             <input
-              type={showPassword ? "text" : "password"}
-              name="password_rtsystem_random" // Ubah name sedikit
+              // TRIK 1: Gunakan type="text" agar Chrome tidak mengira ini password
+              type="text" 
+              name="kode_rahasia_masuk" // Nama acak
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Masukan Password"
               required
-              // TRIK UTAMA: new-password agar dikira form registrasi
-              autoComplete="new-password"
+              autoComplete="off"
               style={{
                 width: "100%", background: "rgba(0,0,0,0.6)", border: "1px solid #222",
                 color: "#fff", borderRadius: "8px", padding: "0.8rem 3.2rem 0.8rem 0.8rem",
                 outline: "none", transition: "border 0.2s",
+                // TRIK 2: CSS Masking agar text terlihat bulat-bulat (••••)
+                WebkitTextSecurity: isMasked ? 'disc' : 'none',
+                MozTextSecurity: isMasked ? 'circle' : 'none',
               }}
               onFocus={(e) => (e.target.style.border = "1px solid #00aaff")}
               onBlur={(e) => (e.target.style.border = "1px solid #222")}
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setIsMasked(!isMasked)}
               style={{
                 position: "absolute", right: "0.6rem", top: "50%", transform: "translateY(-50%)",
                 fontSize: ".8rem", background: "transparent", border: "none",
                 color: "#00aaff", cursor: "pointer", fontWeight: "500",
               }}
             >
-              {showPassword ? "Hide" : "Show"}
+              {isMasked ? "Show" : "Hide"}
             </button>
           </div>
         </div>
