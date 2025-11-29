@@ -1,14 +1,21 @@
 "use client";
 
-// --- 1. NUCLEAR CONSOLE PATCH ---
+// --- 1. NUCLEAR CONSOLE PATCH (UPDATED) ---
+// Membisukan error/warning spesifik dari Recharts agar tidak spam di console
 if (typeof window !== 'undefined') {
   const originalError = console.error;
+  const originalWarn = console.warn;
+
   console.error = (...args) => {
     if (/defaultProps/.test(args[0])) return;
     if (/width\(-1\)/.test(args[0])) return;
-    if (/width\(0\)/.test(args[0])) return;
-    if (/height\(0\)/.test(args[0])) return;
     originalError.call(console, ...args);
+  };
+
+  console.warn = (...args) => {
+    // Menyembunyikan warning spesifik width/height charts
+    if (/width\(/.test(args[0]) && /height\(/.test(args[0])) return;
+    originalWarn.call(console, ...args);
   };
 }
 
@@ -54,13 +61,9 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile(); 
-    window.addEventListener('resize', checkMobile); 
     const timer = setInterval(() => setTime(new Date()), 1000);
     
     // Fetch Warga & Keuangan
@@ -71,7 +74,7 @@ export default function DashboardHome() {
         setLoading(false); 
     });
 
-    return () => { clearInterval(timer); unsubWarga(); unsubKeuangan(); window.removeEventListener('resize', checkMobile); }
+    return () => { clearInterval(timer); unsubWarga(); unsubKeuangan(); }
   }, []);
 
   const stats = useMemo(() => {
@@ -95,7 +98,7 @@ export default function DashboardHome() {
       });
       const ageData = Object.keys(catCounts).map(key => ({ name: key, jumlah: catCounts[key] }));
       
-      const latest = [...warga].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)).slice(0, 5);
+      const latest = [...warga].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()).slice(0, 5);
       
       let totalMasuk = 0, totalKeluar = 0;
       const monthlyStats = {};
@@ -116,7 +119,6 @@ export default function DashboardHome() {
       return { total, totalKK, l, p, genderData, ageData, latest, financeData, totalSaldo, wargaProduktif };
   }, [warga, transaksi]);
 
-  // --- HAPUS TULISAN MEMUAT ---
   if (loading) return null;
 
   const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
@@ -124,7 +126,7 @@ export default function DashboardHome() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* --- STYLE FIX: HAPUS GRADASI PADA KARTU --- */}
+        {/* CSS GLOBAL - SOLID FLAT STYLE */}
         <style jsx global>{`
             .stat-grid { 
                 display: grid; 
@@ -142,22 +144,22 @@ export default function DashboardHome() {
                 }
             }
 
-            /* MODIFIKASI: KARTU FLAT (SOLID) */
+            /* STYLE FLAT (SOLID) */
             .neon-card {
                 position: relative;
-                background: #111; /* Solid Background */
+                background: #111; 
                 border-radius: 16px;
                 z-index: 1;
                 border: 1px solid rgba(255,255,255,0.08);
             }
 
-            /* HAPUS EFEK GLOW/GRADASI DI BELAKANG KARTU */
+            /* Hapus before pseudo-element untuk menghilangkan glow */
             .neon-card::before {
                 display: none;
             }
 
             .card-inner {
-                background: #111; /* Solid Background, tidak ada linear-gradient */
+                background: #111;
                 border-radius: 16px;
                 padding: 1.2rem;
                 height: 100%;
@@ -184,7 +186,7 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS (2x2 di Mobile, Hover Off) --- */}
+        {/* --- GRID STATS (2x2 di Mobile, Solid) --- */}
         <div className="stat-grid">
             <div className="neon-card" style={{'--c1': '#00eaff', '--c2': '#0055ff'}}>
                 <CardInner icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
@@ -210,11 +212,11 @@ export default function DashboardHome() {
             <div className="neon-card" style={{'--c1': '#f59e0b', '--c2': '#d97706'}}>
                 <div className="card-inner">
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                        <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)
+                        <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas
                     </h3>
                     <div style={{ width: '100%', height: '200px' }}>
                         {isClient && (
-                            <ResponsiveContainer width="99%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={stats.financeData} margin={{top:10, right:10, left:-20, bottom:0}}>
                                     <defs>
                                         <linearGradient id="colorMasukUnique" x1="0" y1="0" x2="0" y2="1">
@@ -247,7 +249,7 @@ export default function DashboardHome() {
                     </h3>
                     <div style={{ width: '100%', height: '200px' }}>
                         {isClient && (
-                            <ResponsiveContainer width="99%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats.ageData} margin={{top:10, right:10, left:-20, bottom:0}}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
                                     <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
@@ -271,7 +273,7 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender
                     </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
                         {isClient && (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
