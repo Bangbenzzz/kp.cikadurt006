@@ -100,6 +100,21 @@ export default function KeuanganPage() {
     return () => unsubscribe();
   }, []);
 
+  // --- STATS CALCULATION (MEMOIZED) ---
+  const stats = useMemo(() => {
+    let totalMasuk = 0, totalKeluar = 0, bulanIniMasuk = 0, bulanIniKeluar = 0;
+    const now = new Date();
+    transaksi.forEach(t => {
+      const date = new Date(t.tanggal);
+      const val = Number(t.nominal) || 0;
+      if (t.tipe === 'masuk') totalMasuk += val; else totalKeluar += val;
+      if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+        if (t.tipe === 'masuk') bulanIniMasuk += val; else bulanIniKeluar += val;
+      }
+    });
+    return { totalSaldo: totalMasuk - totalKeluar, bulanIniMasuk, bulanIniKeluar, totalTransaksi: transaksi.length };
+  }, [transaksi]);
+
   // --- HANDLERS (INPUT) ---
   const handleNominalChange = (e) => {
       const value = e.target.value;
@@ -129,7 +144,7 @@ export default function KeuanganPage() {
       setShowModal(true);
   };
 
-  // --- FUNGSI TOAST NOTIFIKASI KECIL & RAPI (DIPINDAHKAN KE ATAS) ---
+  // --- FUNGSI TOAST NOTIFIKASI KECIL & RAPI ---
   const showToast = (message) => {
       const Toast = Swal.mixin({
           toast: true,
@@ -182,7 +197,7 @@ export default function KeuanganPage() {
       if (result.isConfirmed) {
           try {
               await deleteDoc(doc(db, 'keuangan', id));
-              showToast('Data berhasil dihapus'); // Opsional: Tambahkan toast saat hapus juga
+              showToast('Data berhasil dihapus');
           } catch (error) {
               console.error(error);
           }
@@ -202,13 +217,13 @@ export default function KeuanganPage() {
                   tipe: formData.tipe,
                   tanggal: formData.date
               });
-              showToast('Transaksi berhasil diperbarui'); // <-- TOAST SAAT EDIT
+              showToast('Transaksi berhasil diperbarui');
           } else {
               await addDoc(collection(db, 'keuangan'), {
                   keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe,
                   tanggal: formData.date, createdAt: new Date().toISOString()
               });
-              showToast('Transaksi berhasil disimpan'); // <-- TOAST SAAT SIMPAN
+              showToast('Transaksi berhasil disimpan');
           }
           handleOpenAdd(); 
           setShowModal(false);
@@ -259,23 +274,28 @@ export default function KeuanganPage() {
         return; 
     }
 
-    let sumMasuk = 0;
-    let sumKeluar = 0;
+    // Hitung Total Masuk/Keluar HANYA untuk periode yang dipilih
+    let sumMasukPeriode = 0;
+    let sumKeluarPeriode = 0;
     dataToExport.forEach(t => {
-        if (t.tipe === 'masuk') sumMasuk += Number(t.nominal);
-        else sumKeluar += Number(t.nominal);
+        if (t.tipe === 'masuk') sumMasukPeriode += Number(t.nominal);
+        else sumKeluarPeriode += Number(t.nominal);
     });
-    const sumSaldo = sumMasuk - sumKeluar;
+    
+    // Ambil Total Saldo Akumulasi (Keseluruhan)
+    const totalSaldoSaatIni = stats.totalSaldo; 
 
     if (exportFormat === 'excel') {
+        // ... (Kode Excel tidak berubah, tetap sama seperti sebelumnya) ...
         const headerData = [
             ["KETUA RT. 02 RW. 19"], ["DESA DAYEUH"], ["KECAMATAN CILEUNGSI KABUPATEN BOGOR"],
             ["Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281"], [],
             ["LAPORAN KEUANGAN"], [`Periode: ${periodTitle}`], [],
         ];
+        
         const summaryData = [
-            ["Total Pemasukan:", formatRp(sumMasuk), "", "Selisih Periode:", formatRp(sumSaldo)],
-            ["Total Pengeluaran:", formatRp(sumKeluar), "", "", ""], []
+            ["Total Pemasukan (Periode):", formatRp(sumMasukPeriode), "", "TOTAL SALDO SAAT INI:", formatRp(totalSaldoSaatIni)],
+            ["Total Pengeluaran (Periode):", formatRp(sumKeluarPeriode), "", "", ""], []
         ];
         const tableHeader = ["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"];
         const tableBody = dataToExport.map((t, index) => [
@@ -302,6 +322,7 @@ export default function KeuanganPage() {
             doc.addImage(imgData, 'PNG', 14, 10, 20, 20);
         } catch (e) { console.warn("Logo missing"); }
 
+        // --- KOP SURAT ---
         doc.setFont("helvetica", "bold"); doc.setFontSize(12);
         doc.text("KETUA RT. 02 RW. 19", pageWidth / 2, 14, { align: "center" });
         doc.text("DESA DAYEUH", pageWidth / 2, 19, { align: "center" });
@@ -310,28 +331,64 @@ export default function KeuanganPage() {
         doc.text("Sekretariat : Jl. Akses Desa Dayeuh Kp. Cikadu Ds. Dayeuh No Telp. 081293069281", pageWidth / 2, 29, { align: "center" });
         doc.setLineWidth(0.5); doc.line(14, 32, pageWidth - 14, 32);
 
+        // --- JUDUL ---
         doc.setFont("helvetica", "bold"); doc.setFontSize(11);
         doc.text("LAPORAN KEUANGAN", pageWidth / 2, 40, { align: "center" });
         doc.setFont("helvetica", "normal"); doc.setFontSize(9);
         doc.text(`Periode : ${periodTitle}`, pageWidth / 2, 45, { align: "center" });
 
+        // --- KOTAK SUMMARY (LAYOUT BARU) ---
         const startYSummary = 50;
         doc.setDrawColor(200); doc.setFillColor(250);
         doc.roundedRect(14, startYSummary, pageWidth - 28, 25, 1, 1, 'FD'); 
         
+        // ==========================================
+        // BAGIAN KIRI: PEMASUKAN & PENGELUARAN
+        // ==========================================
         doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
-        doc.text("Total Pemasukan :", 20, startYSummary + 9);
-        doc.text("Total Pengeluaran :", 20, startYSummary + 18);
+        
+        // 1. Teks Label (HURUF KAPITAL)
+        doc.text("TOTAL PEMASUKAN", 20, startYSummary + 9);
+        doc.text("TOTAL PENGELUARAN", 20, startYSummary + 18);
 
+        // 2. Titik Dua (Geser dikit ke 62 karena tulisan kapital lebih lebar)
+        doc.text(":", 62, startYSummary + 9);
+        doc.text(":", 62, startYSummary + 18);
+
+        // 3. Nominal (Font Size 11 - Bold)
         doc.setFontSize(11); doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 60, startYSummary + 9);
-        doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 60, startYSummary + 18);
+        doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasukPeriode), 65, startYSummary + 9);
+        doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluarPeriode), 65, startYSummary + 18);
 
-        doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(50);
-        doc.text("Selisih / Saldo Periode :", pageWidth - 95, startYSummary + 13);
-        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
-        doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 13, { align: "right" });
+        // ==========================================
+        // BAGIAN KANAN: TOTAL SALDO SAAT INI
+        // ==========================================
+        
+        const saldoText = formatRp(totalSaldoSaatIni);
+        const rightLimit = pageWidth - 20; // Batas kanan kertas
 
+        // 1. Render Angka Nominal (Font Size 11 - SAMA SEPERTI KIRI)
+        doc.setFontSize(11); 
+        doc.setFont("helvetica", "bold"); 
+        doc.setTextColor(0, 0, 0); // Warna Hitam
+        doc.text(saldoText, rightLimit, startYSummary + 13, { align: "right" });
+
+        // 2. Hitung lebar angkanya (Logic agar titik dua nempel rapi)
+        const saldoWidth = doc.getTextWidth(saldoText);
+        const colonX = rightLimit - saldoWidth - 3; 
+
+        // 3. Render Titik Dua & Label (Font Size 10 - SAMA SEPERTI KIRI)
+        doc.setFontSize(10); 
+        doc.setFont("helvetica", "normal"); 
+        doc.setTextColor(50);
+
+        // Titik Dua
+        doc.text(":", colonX, startYSummary + 13);
+
+        // Label KAPITAL
+        doc.text("TOTAL SALDO SAAT INI", colonX - 2, startYSummary + 13, { align: "right" });
+
+        // --- TABEL ---
         const tableRows = dataToExport.map((t, index) => [
             (index + 1).toString(), formatDate(t.tanggal), t.keterangan,
             t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-",
@@ -363,20 +420,6 @@ export default function KeuanganPage() {
     }
     setShowExportModal(false);
   };
-
-  const stats = useMemo(() => {
-    let totalMasuk = 0, totalKeluar = 0, bulanIniMasuk = 0, bulanIniKeluar = 0;
-    const now = new Date();
-    transaksi.forEach(t => {
-      const date = new Date(t.tanggal);
-      const val = Number(t.nominal) || 0;
-      if (t.tipe === 'masuk') totalMasuk += val; else totalKeluar += val;
-      if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
-        if (t.tipe === 'masuk') bulanIniMasuk += val; else bulanIniKeluar += val;
-      }
-    });
-    return { totalSaldo: totalMasuk - totalKeluar, bulanIniMasuk, bulanIniKeluar, totalTransaksi: transaksi.length };
-  }, [transaksi]);
 
   // Loading text
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Data...</div>;

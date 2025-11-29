@@ -35,15 +35,32 @@ const ConfirmationModal = ({ onConfirm, onCancel, title, message, confirmText, c
     </div>
 );
 
-// --- MODAL PASSWORD ---
+// --- MODAL PASSWORD (YANG DIUBAH AGAR TIDAK MUNCUL POPUP) ---
 const PasswordPromptModal = ({ onVerify, onCancel, error, isLoading }) => {
     const [password, setPassword] = useState('');
     const handleSubmit = (e) => { e.preventDefault(); onVerify(password); };
     return (
-        <form onSubmit={handleSubmit}>
+        // TRIK 1: Matikan autocomplete di form
+        <form onSubmit={handleSubmit} autoComplete="off">
             <h3 style={{color: '#00eaff', textAlign: 'center', marginTop: 0, fontWeight:'600'}}>🔒 Akses Terbatas</h3>
             <p style={{textAlign: 'center', color: '#ccc', margin: '1rem 0 2rem 0', fontSize:'0.9rem'}}>Data Warga bersifat rahasia<br/>Masukkan password</p>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1rem', letterSpacing:'2px' }} autoFocus />
+            
+            {/* TRIK 2: Input pancingan tersembunyi biar Chrome bingung */}
+            <input type="text" name="fake_username_hide" style={{display: 'none'}} />
+            <input type="password" name="fake_password_hide" style={{display: 'none'}} />
+
+            <input 
+                type="password" 
+                // TRIK 3: Gunakan new-password dan name acak
+                name="warga_security_code_rt"
+                autoComplete="new-password"
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                placeholder="Masukkan password" 
+                style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none', textAlign: 'center', fontSize:'1rem', letterSpacing:'2px' }} 
+                autoFocus 
+            />
+            
             {error && <p style={{color: '#ff4d4f', textAlign: 'center', marginTop: '1rem', fontSize:'0.85rem'}}>{error}</p>}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" onClick={onCancel} style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#ccc', cursor: 'pointer' }}>Batal</button>
@@ -220,7 +237,6 @@ export default function DashboardLayout({ children }) {
             <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ width: '8px', height: '8px', background: '#00ff88', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
-                    {/* BAGIAN YANG DIUBAH: MENAMPILKAN NAMA SESUAI EMAIL */}
                     <span style={{ fontWeight: '500', color: '#888', fontSize: '0.85rem' }}>
                         {user ? getDisplayName(user.email) : ''}
                     </span>

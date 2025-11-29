@@ -7,9 +7,9 @@ import { auth } from "../../lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: "", password: "" }); // Ubah username jadi email
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false); // Tambah loading state
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const year = new Date().getFullYear();
 
@@ -25,7 +25,6 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
-      // Pesan error bahasa indonesia
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
          setError("Email atau Password salah!");
       } else if (err.code === 'auth/too-many-requests') {
@@ -64,6 +63,8 @@ export default function LoginPage() {
 
       <form
         onSubmit={handleSubmit}
+        // TRIK 1: Matikan autocomplete di level form
+        autoComplete="off"
         style={{
           position: "relative", zIndex: 1,
           background: "rgba(20,20,20,0.7)", backdropFilter: "blur(10px)",
@@ -91,10 +92,13 @@ export default function LoginPage() {
           </label>
           <input
             type="email"
+            name="email_rtsystem_random" // Ubah name agar tidak terdeteksi standard (opsional tapi membantu)
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             placeholder="Masukan Email"
             required
+            // TRIK 2: Matikan autocomplete di email juga
+            autoComplete="off"
             style={{
               background: "rgba(0,0,0,0.6)", border: "1px solid #222",
               color: "#fff", borderRadius: "8px", padding: "0.8rem",
@@ -113,10 +117,13 @@ export default function LoginPage() {
           <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showPassword ? "text" : "password"}
+              name="password_rtsystem_random" // Ubah name sedikit
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Masukan Password"
               required
+              // TRIK UTAMA: new-password agar dikira form registrasi
+              autoComplete="new-password"
               style={{
                 width: "100%", background: "rgba(0,0,0,0.6)", border: "1px solid #222",
                 color: "#fff", borderRadius: "8px", padding: "0.8rem 3.2rem 0.8rem 0.8rem",
