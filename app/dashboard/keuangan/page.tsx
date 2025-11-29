@@ -50,7 +50,6 @@ const formatNumberDots = (num: string) => {
     return num.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
-// Fungsi helper untuk load image ke Base64 (untuk PDF)
 const getBase64ImageFromURL = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -356,7 +355,7 @@ export default function KeuanganPage() {
     return { totalSaldo: totalMasuk - totalKeluar, bulanIniMasuk, bulanIniKeluar, totalTransaksi: transaksi.length };
   }, [transaksi]);
 
-  // Loading text (sesuai request user tetap ada)
+  // Loading text
   if (loading) return <div style={{height:'80vh', display:'flex', justifyContent:'center', alignItems:'center', color:'#00eaff', fontSize:'0.8rem'}}>Memuat Data...</div>;
 
   const availableYears = Array.from(new Set(transaksi.map(t => new Date(t.tanggal).getFullYear()))).sort((a,b)=>b-a);
@@ -365,41 +364,35 @@ export default function KeuanganPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
-      {/* CSS GLOBAL UTAMA */}
+      {/* CSS GLOBAL UTAMA - DIPERBARUI: HAPUS GRADASI */}
       <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
           
-          /* FIX SCROLL DISINI */
           .custom-scroll {
-              -webkit-overflow-scrolling: touch; /* VITAL FOR MOBILE SMOOTHNESS */
-              overscroll-behavior-y: contain; /* Prevents parent scroll chaining */
-              will-change: transform; /* Hint to browser to use GPU */
+              -webkit-overflow-scrolling: touch; 
+              overscroll-behavior-y: contain; 
+              will-change: transform; 
           }
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
+          /* MODIFIKASI: KARTU FLAT (SOLID) TANPA GRADASI */
           .neon-card {
             position: relative;
-            background: #111;
+            background: #111; /* Warna solid */
             border-radius: 16px;
             z-index: 1;
-            border: 1px solid rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08); /* Border tipis */
           }
+          /* HAPUS EFEK GLOW/GRADASI DI BELAKANG KARTU */
           .neon-card::before {
-            content: "";
-            position: absolute;
-            inset: -1px;
-            border-radius: 16px;
-            z-index: -1;
-            background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
-            filter: blur(15px);
-            opacity: 0.5;
-            transition: opacity 0.3s ease;
+            display: none;
           }
+          
           .card-inner {
-            background: linear-gradient(to bottom, #161616, #111);
+            background: #111; /* Background Solid, bukan Linear Gradient */
             border-radius: 16px;
             padding: 1.2rem;
             height: 100%;
@@ -409,7 +402,7 @@ export default function KeuanganPage() {
             z-index: 2;
           }
 
-          /* ANIMASI HEALTH BAR */
+          /* ANIMASI HEALTH BAR (TETAP) */
           @keyframes shimmer {
               0% { background-position: -200% 0; }
               100% { background-position: 200% 0; }
@@ -442,7 +435,7 @@ export default function KeuanganPage() {
           <CardStat icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
       </div>
 
-      {/* --- NEW FEATURE: MONTHLY HEALTH BAR --- */}
+      {/* --- MONTHLY HEALTH BAR --- */}
       <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
 
       {/* LIST RIWAYAT */}
@@ -450,7 +443,6 @@ export default function KeuanganPage() {
           <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
-                    <span style={{fontSize: '0.7rem', color:'#666', fontStyle:'italic', marginLeft:'10px', display:'none'}}>*Menampilkan 100 data terbaru</span>
                     <div style={{ display: 'flex', gap: '0.8rem', marginLeft: 'auto' }}>
                         <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
                             <LuDownload /> Export Laporan
@@ -629,7 +621,6 @@ const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: '600' }}>
                     <div style={{ color: '#fff' }}>Kesehatan Anggaran Bulan Ini</div>
                     <div style={{ color: barColor, display:'flex', alignItems:'center', gap:'6px' }}>
-                        {/* ICON BARU */}
                         {isDanger ? <LuTriangleAlert/> : <LuCircleCheck/>}
                         {isDanger ? 'Defisit Anggaran!' : `${percentage.toFixed(1)}%`}
                     </div>

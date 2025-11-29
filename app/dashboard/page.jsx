@@ -117,7 +117,6 @@ export default function DashboardHome() {
   }, [warga, transaksi]);
 
   // --- HAPUS TULISAN MEMUAT ---
-  // Jika loading, kembalikan null (kosong) agar tidak merusak layout transisi
   if (loading) return null;
 
   const formatRp = (num) => "Rp " + Number(num).toLocaleString("id-ID");
@@ -125,7 +124,7 @@ export default function DashboardHome() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* --- STYLE FIX LAYOUT 2x2 MOBILE & HAPUS HOVER EFFECT --- */}
+        {/* --- STYLE FIX: HAPUS GRADASI PADA KARTU --- */}
         <style jsx global>{`
             .stat-grid { 
                 display: grid; 
@@ -143,32 +142,22 @@ export default function DashboardHome() {
                 }
             }
 
-            /* EFEK HOVER DIHAPUS DARI CSS */
-            
+            /* MODIFIKASI: KARTU FLAT (SOLID) */
             .neon-card {
                 position: relative;
-                background: #111; 
+                background: #111; /* Solid Background */
                 border-radius: 16px;
                 z-index: 1;
                 border: 1px solid rgba(255,255,255,0.08);
             }
 
+            /* HAPUS EFEK GLOW/GRADASI DI BELAKANG KARTU */
             .neon-card::before {
-                content: "";
-                position: absolute;
-                inset: -1px; 
-                border-radius: 16px;
-                z-index: -1;
-                background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
-                filter: blur(15px); 
-                opacity: 0.5; 
-                /* Transisi dihapus agar statis */
+                display: none;
             }
-            
-            /* Animasi hover dihapus */
 
             .card-inner {
-                background: linear-gradient(to bottom, #161616, #111);
+                background: #111; /* Solid Background, tidak ada linear-gradient */
                 border-radius: 16px;
                 padding: 1.2rem;
                 height: 100%;
@@ -348,7 +337,6 @@ export default function DashboardHome() {
 
 // --- SUB-KOMPONEN KARTU TANPA INTERAKSI HOVER ---
 const CardInner = ({ icon, label, value, sub, color, isCurrency }) => (
-    // Style transition & event onMouseEnter dihapus
     <div className="card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
