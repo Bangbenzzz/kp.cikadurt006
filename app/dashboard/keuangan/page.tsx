@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, CSSProperties } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
-  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck, LuChevronLeft, LuChevronRight 
+  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck 
 } from "react-icons/lu";
 
 import jsPDF from "jspdf";
@@ -12,7 +12,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import Swal from 'sweetalert2';
 
-// --- TYPE DEFINITIONS ---
+// --- TYPE DEFINITIONS (Agar tidak error "implicitly any") ---
 interface Transaksi {
   id: string;
   keterangan: string;
@@ -69,7 +69,7 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
-// --- STYLES ---
+// --- STYLES (Typed CSSProperties) ---
 const inputStyle: CSSProperties = {
     width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '8px', color: '#fff', fontSize: '1rem', outline: 'none', marginBottom: '1rem'
@@ -85,19 +85,14 @@ const selectStyle: CSSProperties = {
 };
 
 export default function KeuanganPage() {
+  // Fix: Inisialisasi state dengan tipe array Transaksi, bukan never[]
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  // Modal States
   const [showModal, setShowModal] = useState(false); 
   const [showExportModal, setShowExportModal] = useState(false); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form State
   const [editId, setEditId] = useState<string | null>(null); 
   const [formData, setFormData] = useState<FormDataState>({
       keterangan: '',
@@ -107,7 +102,6 @@ export default function KeuanganPage() {
   const [displayNominal, setDisplayNominal] = useState('');
   const [realNominal, setRealNominal] = useState(0);
 
-  // Export State
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [exportType, setExportType] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -124,21 +118,6 @@ export default function KeuanganPage() {
     return () => unsubscribe();
   }, []);
 
-  // --- LOGIC PAGINASI ---
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = transaksi.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(transaksi.length / itemsPerPage);
-
-  const handleNextPage = () => {
-      if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
-  };
-
-  const handlePrevPage = () => {
-      if (currentPage > 1) setCurrentPage(prev => prev - 1);
-  };
-
-  // --- HANDLERS ---
   const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       const numericString = value.replace(/\./g, '').replace(/[^0-9]/g, '');
@@ -170,7 +149,7 @@ export default function KeuanganPage() {
   const handleDelete = async (id: string) => {
       const result = await Swal.fire({
           title: 'Hapus?',
-          text: "Yakin ingin menghapus data ini?",
+          text: "Apakah Anda yakin ingin menghapus data ini?",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444', 
@@ -212,13 +191,10 @@ export default function KeuanganPage() {
           }
           handleOpenAdd(); 
           setShowModal(false);
-          // Reset ke halaman 1 saat tambah data baru agar terlihat
-          if (!editId) setCurrentPage(1); 
       } catch (error) { console.error(error); } 
       finally { setIsSubmitting(false); }
   };
 
-  // --- EXPORT LOGIC ---
   const getFilteredData = () => {
     return transaksi.filter(t => {
         const d = new Date(t.tanggal);
@@ -266,7 +242,7 @@ export default function KeuanganPage() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
     } else {
-        const doc: any = new jsPDF(); 
+        const doc: any = new jsPDF(); // Type assertion untuk bypass error overload jsPDF
         const pageWidth = doc.internal.pageSize.width;
         try { const imgData = await getBase64ImageFromURL('/logo-rt.png'); doc.addImage(imgData, 'PNG', 14, 10, 20, 20); } catch (e) { }
         doc.setFont("helvetica", "bold"); doc.setFontSize(12);
@@ -328,11 +304,20 @@ export default function KeuanganPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
-      {/* CSS GLOBAL - GRADASI ORIGINAL */}
+      {/* CSS GLOBAL: GRADASI ORIGINAL + MOBILE SCROLL FIX */}
       <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
           
+          .custom-scroll {
+              -webkit-overflow-scrolling: touch; 
+              overscroll-behavior-y: contain; 
+              will-change: transform; 
+          }
+          .custom-scroll::-webkit-scrollbar { width: 6px; }
+          .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+          .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
           /* ORIGINAL NEON GRADIENT */
           .neon-card {
             position: relative;
@@ -361,6 +346,18 @@ export default function KeuanganPage() {
             flex-direction: column;
             position: relative;
             z-index: 2;
+          }
+
+          /* --- MOBILE SCROLL FIX: --- */
+          @media (max-width: 768px) {
+             .scroll-card-fix .card-inner {
+                 height: auto !important;
+                 min-height: 0 !important;
+             }
+             .scroll-card-fix .custom-scroll {
+                 overflow-y: visible !important;
+                 height: auto !important;
+             }
           }
 
           @keyframes shimmer {
@@ -397,9 +394,9 @@ export default function KeuanganPage() {
       {/* HEALTH BAR */}
       <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
 
-      {/* LIST RIWAYAT DENGAN PAGINASI */}
-      <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'} as React.CSSProperties}>
-          <div className="card-inner" style={{ minHeight: 'fit-content' }}>
+      {/* LIST RIWAYAT */}
+      <div className="neon-card scroll-card-fix" style={{'--c1': '#444', '--c2': '#666'} as React.CSSProperties}>
+          <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
                     <div style={{ display: 'flex', gap: '0.8rem', marginLeft: 'auto' }}>
@@ -412,10 +409,9 @@ export default function KeuanganPage() {
                     </div>
                 </div>
                 
-                {/* LIST ITEM (Fixed 5 items) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {currentItems.length > 0 ? currentItems.map((t, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
+                <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
+                    {transaksi.length > 0 ? transaksi.slice(0, 100).map((t, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
                             <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
                                 {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
                             </div>
@@ -438,40 +434,14 @@ export default function KeuanganPage() {
                             </div>
                         </div>
                     )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
+                    
+                    {transaksi.length > 100 && (
+                        <div style={{textAlign:'center', padding:'1rem', fontSize:'0.75rem', color:'#555', borderTop:'1px solid rgba(255,255,255,0.05)', marginTop:'1rem'}}>
+                            *Hanya menampilkan 100 data terbaru.<br/>
+                            Gunakan fitur <b>Export Laporan</b> untuk melihat data lengkap.
+                        </div>
+                    )}
                 </div>
-
-                {/* PAGINATION CONTROLS */}
-                {transaksi.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                            Hal {currentPage} dari {totalPages}
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button 
-                                onClick={handlePrevPage} 
-                                disabled={currentPage === 1}
-                                style={{ 
-                                    background: currentPage === 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
-                                    color: currentPage === 1 ? '#444' : '#fff', 
-                                    border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                    display: 'flex', alignItems: 'center'
-                                }}>
-                                <LuChevronLeft />
-                            </button>
-                            <button 
-                                onClick={handleNextPage} 
-                                disabled={currentPage === totalPages}
-                                style={{ 
-                                    background: currentPage === totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
-                                    color: currentPage === totalPages ? '#444' : '#fff', 
-                                    border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                                    display: 'flex', alignItems: 'center'
-                                }}>
-                                <LuChevronRight />
-                            </button>
-                        </div>
-                    </div>
-                )}
           </div>
       </div>
 
