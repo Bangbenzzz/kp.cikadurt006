@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { db, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from '@/lib/firebase';
-import { FaFilePdf, FaFileExcel } from "react-icons/fa"; // IMPORT ICON BARU
+import { FaFilePdf, FaFileExcel } from "react-icons/fa"; 
+import Swal from 'sweetalert2'; // IMPORT SWEETALERT
 
 // ==================================================================================
 // 1. STYLE & COMPONENT KECIL
@@ -65,6 +66,7 @@ const FamilyForm = ({ onSave, onCancel, isLoading }) => {
     
     const handleSubmit = (e) => { 
         e.preventDefault(); 
+        // Menggunakan alert biasa untuk validasi form internal (sesuai request logika tidak diubah)
         if (!no_kk || !kk.nama || !kk.nik) { alert('Data Kepala Keluarga wajib diisi!'); return; } 
         const fam = [{...kk, no_kk, nama_kk, alamat, rt, rw}]; 
         if(istri.nama && istri.nik) fam.push({...istri, no_kk, nama_kk, alamat, rt, rw}); 
@@ -225,10 +227,9 @@ const getAgeCategory = (age) => {
 const formatTableDate = (dateString) => { if (!dateString) return '-'; const date = new Date(dateString); if (isNaN(date.getTime())) return dateString; const day = String(date.getDate()).padStart(2, '0'); const month = String(date.getMonth() + 1).padStart(2, '0'); const year = date.getFullYear(); return `${day}/${month}/${year}`; };
 const getKategoriText = (w) => { if (w.is_dead) return "MENINGGAL"; const cats = []; if (w.is_yatim) cats.push("Yatim/Piatu"); if (w.is_duafa) cats.push("Duafa"); return cats.length > 0 ? cats.join(", ") : "Warga Biasa"; };
 
-// --- MODAL & TOAST ---
+// --- MODAL WRAPPER ---
 const Modal = ({ isOpen, onClose, children, maxWidth = "600px" }) => { const [m,sM]=useState(false); useEffect(()=>sM(true),[]); if(!m||!isOpen)return null; return ReactDOM.createPortal( <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,backdropFilter:'blur(5px)',padding:'1rem'}} onClick={e=>e.stopPropagation()}> <div style={{background:"#161616",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"12px",padding:"1.5rem",width:"100%",maxWidth:maxWidth, maxHeight:'90vh', overflowY:'auto'}} onClick={e=>e.stopPropagation()}> {children} </div> </div>, document.body ); };
 const ConfirmationModal = ({ onConfirm, onCancel, title, message, confirmText, confirmStyle, isLoading }) => ( <div> <h3 style={{color:confirmStyle.color,textAlign:'center',marginTop:0}}>{title}</h3> <p style={{textAlign:'center',color:'#aaa',margin:'1.5rem 0'}}>{message}</p> <div style={{display:'flex',justifyContent:'center',gap:'1rem'}}> <button onClick={onCancel} disabled={isLoading} style={{...buttonStyle.cancel, opacity: isLoading?0.5:1}}>Batal</button> <button onClick={onConfirm} disabled={isLoading} style={{...confirmStyle, opacity: isLoading?0.5:1}}>{isLoading ? 'Memproses...' : confirmText}</button> </div> </div> );
-const ToastNotification = ({ message, type, isVisible, onClose }) => { const [m,sM]=useState(false); useEffect(()=>sM(true),[]); if(!m)return null; const col=type==='success'?'#00ff88':'#ff4d4f'; return ReactDOM.createPortal( <div style={{position:'fixed',top:'20px',left:'50%',transform:isVisible?'translate(-50%,0)':'translate(-50%,-200%)',background:`${col}1A`,border:`1px solid ${col}80`,color:'#fff',padding:'0.75rem 1.5rem',borderRadius:'50px',zIndex:9999,opacity:isVisible?1:0,transition:'all 0.5s',backdropFilter:'blur(12px)'}}> {message} </div>, document.body ); };
 
 export default function WargaPage() {
   const [warga, setWarga] = useState([]); 
@@ -237,13 +238,49 @@ export default function WargaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modalState, setModalState] = useState({ type: null, data: null });
   const [ageFilter, setAgeFilter] = useState(null); 
-  const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' }); 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const fileInputRef = useRef(null);
   
-  const showToast = useCallback((message, type = 'success') => { setToast({ isVisible: true, message, type }); }, []); 
-  useEffect(() => { if (toast.isVisible) { const timer = setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000); return () => clearTimeout(timer); } }, [toast.isVisible]);
+  // --- FUNGSI TOAST NOTIFIKASI BARU (SWEETALERT2) ---
+  const showToast = useCallback((message, type = 'success') => { 
+      const Toast = Swal.mixin({
+          toast: true,
+          position: 'top',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+          didOpen: (toast) => {
+              toast.addEventListener('mouseenter', Swal.stopTimer);
+              toast.addEventListener('mouseleave', Swal.resumeTimer);
+          }
+      });
+
+      // Tentukan warna dan ikon berdasarkan tipe
+      const isError = type === 'error';
+      const iconColor = isError ? '#ff4d4f' : '#00ff88';
+      const iconPath = isError 
+          ? '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>' 
+          : '<polyline points="20 6 9 17 4 12"></polyline>';
+
+      Toast.fire({
+          icon: undefined, // Matikan ikon bawaan
+          background: '#161616',
+          html: `
+            <div style="display: flex; align-items: center; gap: 10px; font-family: sans-serif;">
+                <div style="width: 22px; height: 22px; background: ${iconColor}33; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        ${iconPath}
+                    </svg>
+                </div>
+                <span style="color: #fff; font-size: 0.85rem; font-weight: 600;">${message}</span>
+            </div>
+          `,
+          customClass: {
+              popup: 'clean-toast-popup'
+          }
+      });
+  }, []);
 
   const [currentPage, setCurrentPage] = useState(1);
   const dataPerPage = 10;
@@ -517,7 +554,6 @@ export default function WargaPage() {
                 doc.setDrawColor(150); doc.setLineWidth(0.2); doc.line(data.settings.margin.left, pageHeight - 10, pageWidth - data.settings.margin.right, pageHeight - 10);
                 doc.setFontSize(9); doc.setTextColor(100); doc.text(`Halaman ${doc.internal.getNumberOfPages()}`, pageWidth - data.settings.margin.right, pageHeight - 5, { align: 'right' }); doc.text("Sistem Administrasi RT Kp. Cikadu", data.settings.margin.left, pageHeight - 5);
             },
-            // PERBAIKAN: margin top diubah jadi 50 supaya sama dengan startY halaman 1
             margin: { top: 50, bottom: 15, left: 20, right: 20 }
         });
         showToast("Mengunduh PDF...", "success"); 
@@ -560,8 +596,40 @@ export default function WargaPage() {
 
   return (
     <div>
+        {/* === CSS GLOBAL KHUSUS SWEETALERT & SCROLL === */}
         <style>{`
-            .custom-scroll::-webkit-scrollbar { width: 5px; } .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); } .custom-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; } .custom-scroll::-webkit-scrollbar-thumb:hover { background: #00eaff; } .dropdown-item:hover { background: rgba(0, 234, 255, 0.15) !important; color: #fff !important; }
+            .custom-scroll::-webkit-scrollbar { width: 5px; } 
+            .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); } 
+            .custom-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; } 
+            .custom-scroll::-webkit-scrollbar-thumb:hover { background: #00eaff; } 
+            .dropdown-item:hover { background: rgba(0, 234, 255, 0.15) !important; color: #fff !important; }
+
+            /* --- SWEETALERT RESET & TOAST STYLES --- */
+            div:where(.swal2-container) { z-index: 9999 !important; }
+            div:where(.swal2-styled) { margin: 0 !important; }
+
+            div:where(.swal2-container).swal2-top > .swal2-popup.clean-toast-popup {
+                padding: 8px 16px !important;
+                width: auto !important;
+                max-width: 350px;
+                border-radius: 50px !important;
+                background: #161616 !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                box-shadow: 0 8px 20px rgba(0,0,0,0.5) !important;
+                margin-top: 1.5rem !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            div:where(.swal2-popup).clean-toast-popup .swal2-html-container {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                text-align: left !important;
+            }
+
+            div:where(.swal2-popup).clean-toast-popup .swal2-icon { display: none !important; }
+            div:where(.swal2-timer-progress-bar) { background: #00ff88 !important; height: 3px !important; bottom: 0 !important; border-radius: 0 0 50px 50px; }
         `}</style>
 
         {/* --- HEADER & FILTER AREA --- */}
@@ -723,7 +791,6 @@ export default function WargaPage() {
             />
         </Modal>
         
-        <ToastNotification message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} />
     </div>
   );
 }

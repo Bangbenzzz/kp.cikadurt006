@@ -126,7 +126,7 @@ export default function DashboardHome() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* CSS GLOBAL - SOLID FLAT STYLE */}
+        {/* CSS GLOBAL - SOLID FLAT STYLE + ANIMASI DOT */}
         <style jsx global>{`
             .stat-grid { 
                 display: grid; 
@@ -153,10 +153,7 @@ export default function DashboardHome() {
                 border: 1px solid rgba(255,255,255,0.08);
             }
 
-            /* Hapus before pseudo-element untuk menghilangkan glow */
-            .neon-card::before {
-                display: none;
-            }
+            .neon-card::before { display: none; }
 
             .card-inner {
                 background: #111;
@@ -167,6 +164,13 @@ export default function DashboardHome() {
                 flex-direction: column;
                 position: relative;
                 z-index: 2; 
+            }
+
+            /* ANIMASI DOT BLINK (KELAP KELIP CEPAT) */
+            @keyframes dotBlink {
+                0% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.3; transform: scale(0.8); }
+                100% { opacity: 1; transform: scale(1); }
             }
         `}</style>
 
@@ -186,22 +190,22 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS (2x2 di Mobile, Solid) --- */}
+        {/* --- GRID STATS (2x2 di Mobile, Solid) - DENGAN DELAY --- */}
         <div className="stat-grid">
             <div className="neon-card" style={{'--c1': '#00eaff', '--c2': '#0055ff'}}>
-                <CardInner icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
+                <CardInner delay="0s" icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
             </div>
             
             <div className="neon-card" style={{'--c1': '#00ff88', '--c2': '#00aa55'}}>
-                <CardInner icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" />
+                <CardInner delay="0.5s" icon={<LuHouse />} label="Kepala Keluarga" value={stats.totalKK} sub="KK" color="#00ff88" />
             </div>
 
             <div className="neon-card" style={{'--c1': '#f59e0b', '--c2': '#aa4400'}}>
-                <CardInner icon={<LuWallet />} label="Saldo Kas RT" value={formatRp(stats.totalSaldo)} sub="UPDATE" color="#f59e0b" isCurrency={true} />
+                <CardInner delay="0.9s" icon={<LuWallet />} label="Saldo Kas RT" value={formatRp(stats.totalSaldo)} sub="UPDATE" color="#f59e0b" isCurrency={true} />
             </div>
 
             <div className="neon-card" style={{'--c1': '#8b5cf6', '--c2': '#aa00ff'}}>
-                <CardInner icon={<LuZap />} label="Usia Produktif" value={stats.wargaProduktif} sub="15-55 THN" color="#8b5cf6" />
+                <CardInner delay="0.12s" icon={<LuZap />} label="Usia Produktif" value={stats.wargaProduktif} sub="15-55 THN" color="#8b5cf6" />
             </div>
         </div>
 
@@ -337,8 +341,8 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUB-KOMPONEN KARTU TANPA INTERAKSI HOVER ---
-const CardInner = ({ icon, label, value, sub, color, isCurrency }) => (
+// --- SUB-KOMPONEN KARTU TANPA INTERAKSI HOVER + ANIMASI DOT + DELAY ---
+const CardInner = ({ icon, label, value, sub, color, isCurrency, delay="0s" }) => (
     <div className="card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</div>
@@ -354,7 +358,16 @@ const CardInner = ({ icon, label, value, sub, color, isCurrency }) => (
             {value}
         </div>
         <div style={{ fontSize: '0.65rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'4px', fontWeight:'500', marginTop:'auto', paddingTop:'0.5rem' }}>
-            <div style={{width:5, height:5, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> {sub}
+            <div style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: color,
+                boxShadow: `0 0 8px ${color}`,
+                animation: 'dotBlink 0.6s ease-in-out infinite',
+                animationDelay: delay // DELAY DITERAPKAN DI SINI
+            }}></div> 
+            {sub}
         </div>
     </div>
 );

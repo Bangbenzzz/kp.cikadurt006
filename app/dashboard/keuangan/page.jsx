@@ -129,32 +129,60 @@ export default function KeuanganPage() {
       setShowModal(true);
   };
 
+  // --- FUNGSI TOAST NOTIFIKASI KECIL & RAPI (DIPINDAHKAN KE ATAS) ---
+  const showToast = (message) => {
+      const Toast = Swal.mixin({
+          toast: true,
+          position: 'top',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+          didOpen: (toast) => {
+              toast.addEventListener('mouseenter', Swal.stopTimer)
+              toast.addEventListener('mouseleave', Swal.resumeTimer)
+          }
+      });
+
+      Toast.fire({
+          icon: undefined, 
+          background: '#161616',
+          html: `
+            <div style="display: flex; align-items: center; gap: 10px; font-family: sans-serif;">
+                <div style="width: 22px; height: 22px; background: rgba(0, 255, 136, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+                <span style="color: #fff; font-size: 0.85rem; font-weight: 600;">${message}</span>
+            </div>
+          `,
+          customClass: {
+              popup: 'clean-toast-popup'
+          }
+      });
+  };
+
   const handleDelete = async (id) => {
       const result = await Swal.fire({
           title: 'Hapus?',
-          text: "Apakah Anda yakin ingin menghapus data ini?",
+          text: "Hapus data ini?",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444', 
           cancelButtonColor: '#333', 
-          confirmButtonText: 'Ya, Hapus',
+          confirmButtonText: 'Hapus',
           cancelButtonText: 'Batal',
           background: '#1a1a1a', 
           color: '#fff',
           iconColor: '#f59e0b',
           reverseButtons: true,
-          width: '260px',
-          padding: '1rem',
-          customClass: {
-            popup: 'compact-modal-popup',
-            title: 'compact-modal-title',
-            actions: 'compact-modal-actions'
-          }
+          width: '300px',
       });
 
       if (result.isConfirmed) {
           try {
               await deleteDoc(doc(db, 'keuangan', id));
+              showToast('Data berhasil dihapus'); // Opsional: Tambahkan toast saat hapus juga
           } catch (error) {
               console.error(error);
           }
@@ -174,11 +202,13 @@ export default function KeuanganPage() {
                   tipe: formData.tipe,
                   tanggal: formData.date
               });
+              showToast('Transaksi berhasil diperbarui'); // <-- TOAST SAAT EDIT
           } else {
               await addDoc(collection(db, 'keuangan'), {
                   keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe,
                   tanggal: formData.date, createdAt: new Date().toISOString()
               });
+              showToast('Transaksi berhasil disimpan'); // <-- TOAST SAAT SIMPAN
           }
           handleOpenAdd(); 
           setShowModal(false);
@@ -219,7 +249,15 @@ export default function KeuanganPage() {
     const dataToExport = getFilteredData();
     const periodTitle = getExportTitle();
 
-    if (dataToExport.length === 0) return; 
+    if (dataToExport.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Tidak ada data',
+            text: 'Tidak ada transaksi untuk periode yang dipilih.',
+            background: '#1a1a1a', color: '#fff', confirmButtonColor: '#333'
+        });
+        return; 
+    }
 
     let sumMasuk = 0;
     let sumKeluar = 0;
@@ -253,6 +291,8 @@ export default function KeuanganPage() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
+
+        showToast('File Excel berhasil diunduh'); 
 
     } else {
         const doc = new jsPDF();
@@ -318,6 +358,8 @@ export default function KeuanganPage() {
             }
         });
         doc.save(`Laporan_${periodTitle.replace(/ /g, '_')}.pdf`);
+        
+        showToast('File PDF berhasil diunduh'); 
     }
     setShowExportModal(false);
   };
@@ -345,7 +387,7 @@ export default function KeuanganPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
-      {/* CSS GLOBAL UTAMA - DIPERBARUI: HAPUS GRADASI */}
+      {/* CSS GLOBAL UTAMA - TOAST FIXED & CLEAN */}
       <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
@@ -359,21 +401,17 @@ export default function KeuanganPage() {
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-          /* MODIFIKASI: KARTU FLAT (SOLID) TANPA GRADASI */
           .neon-card {
             position: relative;
-            background: #111; /* Warna solid */
+            background: #111; 
             border-radius: 16px;
             z-index: 1;
-            border: 1px solid rgba(255,255,255,0.08); /* Border tipis */
+            border: 1px solid rgba(255,255,255,0.08); 
           }
-          /* HAPUS EFEK GLOW/GRADASI DI BELAKANG KARTU */
-          .neon-card::before {
-            display: none;
-          }
+          .neon-card::before { display: none; }
           
           .card-inner {
-            background: #111; /* Background Solid, bukan Linear Gradient */
+            background: #111; 
             border-radius: 16px;
             padding: 1.2rem;
             height: 100%;
@@ -383,18 +421,55 @@ export default function KeuanganPage() {
             z-index: 2;
           }
 
-          /* ANIMASI HEALTH BAR (TETAP) */
           @keyframes shimmer {
               0% { background-position: -200% 0; }
               100% { background-position: 200% 0; }
           }
+          
+          @keyframes dotBlink {
+              0% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.3; transform: scale(0.8); }
+              100% { opacity: 1; transform: scale(1); }
+          }
 
-          /* SweetAlert Override */
-          div:where(.swal2-container) div:where(.compact-modal-popup) { border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-          .compact-modal-title { font-size: 1.1rem !important; font-weight: 700 !important; margin-bottom: 0.5rem !important; }
-          .compact-modal-actions { margin-top: 1rem !important; gap: 8px !important; }
-          div:where(.swal2-icon) { width: 3.5em !important; height: 3.5em !important; margin-top: 0.5rem !important; border-width: 3px !important; }
-          div:where(.swal2-styled) { padding: 6px 16px !important; font-size: 0.85rem !important; margin: 0 !important; border-radius: 6px !important; }
+          /* --- CSS RESET & FIX UNTUK SWEETALERT TOAST --- */
+          div:where(.swal2-container) { z-index: 9999 !important; }
+          
+          /* Style Container Toast agar tidak terlalu lebar & padding pas */
+          div:where(.swal2-container).swal2-top > .swal2-popup.clean-toast-popup {
+              padding: 8px 16px !important;
+              width: auto !important;
+              max-width: 350px;
+              border-radius: 50px !important;
+              background: #161616 !important;
+              border: 1px solid rgba(255,255,255,0.15) !important;
+              box-shadow: 0 8px 20px rgba(0,0,0,0.5) !important;
+              margin-top: 1.5rem !important;
+              display: flex !important;
+              align-items: center !important;
+          }
+
+          /* Pastikan HTML container tidak menambah margin aneh */
+          div:where(.swal2-popup).clean-toast-popup .swal2-html-container {
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: visible !important;
+              text-align: left !important;
+          }
+
+          /* Hilangkan Icon Bawaan jika masih muncul (Safety Net) */
+          div:where(.swal2-popup).clean-toast-popup .swal2-icon {
+              display: none !important;
+          }
+
+          /* Warna Progress Bar Toast */
+          div:where(.swal2-timer-progress-bar) { background: #00ff88 !important; height: 3px !important; bottom: 0 !important; border-radius: 0 0 50px 50px; }
+
+          /* Style Modal Biasa (Delete Confirm) */
+          div:where(.swal2-popup):not(.clean-toast-popup) .swal2-icon {
+              width: 3.5em !important; height: 3.5em !important; margin-top: 0.5rem !important;
+          }
+
           .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
           @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -408,12 +483,12 @@ export default function KeuanganPage() {
           </div>
       </div>
 
-      {/* STATS */}
+      {/* STATS - DENGAN DELAY ANIMASI AGAR TIDAK BARENG */}
       <div className="stat-grid">
-          <CardStat icon={<LuWallet />} label="Total Saldo" value={formatRp(stats.totalSaldo)} sub="TOTAL KAS" color="#f59e0b" bg="rgba(245, 158, 11, 0.1)" isCurrency={true}/>
-          <CardStat icon={<LuArrowUp />} label="Pemasukan" value={formatRp(stats.bulanIniMasuk)} sub="BULAN INI" color="#00ff88" bg="rgba(0, 255, 136, 0.1)" isCurrency={true}/>
-          <CardStat icon={<LuArrowDown />} label="Pengeluaran" value={formatRp(stats.bulanIniKeluar)} sub="BULAN INI" color="#ef4444" bg="rgba(239, 68, 68, 0.1)" isCurrency={true}/>
-          <CardStat icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
+          <CardStat delay="0s" icon={<LuWallet />} label="Total Saldo" value={formatRp(stats.totalSaldo)} sub="TOTAL KAS" color="#f59e0b" bg="rgba(245, 158, 11, 0.1)" isCurrency={true}/>
+          <CardStat delay="0.5s" icon={<LuArrowUp />} label="Pemasukan" value={formatRp(stats.bulanIniMasuk)} sub="BULAN INI" color="#00ff88" bg="rgba(0, 255, 136, 0.1)" isCurrency={true}/>
+          <CardStat delay="0.9s" icon={<LuArrowDown />} label="Pengeluaran" value={formatRp(stats.bulanIniKeluar)} sub="BULAN INI" color="#ef4444" bg="rgba(239, 68, 68, 0.1)" isCurrency={true}/>
+          <CardStat delay="0.12s" icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
       </div>
 
       {/* --- MONTHLY HEALTH BAR --- */}
@@ -556,7 +631,7 @@ export default function KeuanganPage() {
   );
 }
 
-const CardStat = ({ icon, label, value, sub, color, bg, isCurrency = false }) => {
+const CardStat = ({ icon, label, value, sub, color, bg, isCurrency = false, delay = "0s" }) => {
     let c2 = color;
     if (color === '#f59e0b') c2 = '#b45309'; 
     else if (color === '#00ff88') c2 = '#059669'; 
@@ -578,7 +653,15 @@ const CardStat = ({ icon, label, value, sub, color, bg, isCurrency = false }) =>
                     {value}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: color, opacity: 0.9, display:'flex', alignItems:'center', gap:'4px', fontWeight:'500', marginTop:'auto', paddingTop:'0.5rem' }}>
-                    <div style={{width:5, height:5, borderRadius:'50%', background:color, boxShadow: `0 0 5px ${color}`}}></div> 
+                    <div style={{
+                        width: 6, // Sedikit diperbesar
+                        height: 6, 
+                        borderRadius: '50%', 
+                        background: color, 
+                        boxShadow: `0 0 8px ${color}`,
+                        animation: `dotBlink 0.6s ease-in-out infinite`,
+                        animationDelay: delay // DELAY DITERAPKAN DI SINI
+                    }}></div> 
                     {sub}
                 </div>
             </div>
