@@ -1,10 +1,11 @@
 "use client";
 
+// --- PERBAIKAN: useMemo ditambahkan di sini ---
 import React, { useState, useEffect, useMemo, CSSProperties } from "react";
 import { db, collection, onSnapshot, query, orderBy, addDoc, doc, deleteDoc, updateDoc } from "@/lib/firebase"; 
 import { 
   LuWallet, LuArrowUp, LuArrowDown, LuPlus, LuFileText, LuX, LuSave, LuLoader, LuDownload, LuFilter,
-  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck 
+  LuPencil, LuTrash2, LuTriangleAlert, LuCircleCheck, LuChevronLeft, LuChevronRight 
 } from "react-icons/lu";
 
 import jsPDF from "jspdf";
@@ -12,7 +13,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import Swal from 'sweetalert2';
 
-// --- TYPE DEFINITIONS (Agar tidak error "implicitly any") ---
+// --- TYPE DEFINITIONS ---
 interface Transaksi {
   id: string;
   keterangan: string;
@@ -69,14 +70,14 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
-// --- STYLES (Typed CSSProperties) ---
+// --- STYLES ---
+const labelStyle: CSSProperties = {
+    display: 'block', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem', fontWeight: '500'
+};
+
 const inputStyle: CSSProperties = {
     width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '8px', color: '#fff', fontSize: '1rem', outline: 'none', marginBottom: '1rem'
-};
-
-const labelStyle: CSSProperties = {
-    display: 'block', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem', fontWeight: '500'
 };
 
 const selectStyle: CSSProperties = {
@@ -85,14 +86,19 @@ const selectStyle: CSSProperties = {
 };
 
 export default function KeuanganPage() {
-  // Fix: Inisialisasi state dengan tipe array Transaksi, bukan never[]
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Modal
   const [showModal, setShowModal] = useState(false); 
   const [showExportModal, setShowExportModal] = useState(false); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Form
   const [editId, setEditId] = useState<string | null>(null); 
   const [formData, setFormData] = useState<FormDataState>({
       keterangan: '',
@@ -102,6 +108,7 @@ export default function KeuanganPage() {
   const [displayNominal, setDisplayNominal] = useState('');
   const [realNominal, setRealNominal] = useState(0);
 
+  // Export
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [exportType, setExportType] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -118,6 +125,16 @@ export default function KeuanganPage() {
     return () => unsubscribe();
   }, []);
 
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = transaksi.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(transaksi.length / itemsPerPage);
+
+  const handleNextPage = () => { if (currentPage < totalPages) setCurrentPage(prev => prev + 1); };
+  const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(prev => prev - 1); };
+
+  // Handlers
   const handleNominalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       const numericString = value.replace(/\./g, '').replace(/[^0-9]/g, '');
@@ -136,11 +153,7 @@ export default function KeuanganPage() {
 
   const handleOpenEdit = (t: Transaksi) => {
       setEditId(t.id);
-      setFormData({ 
-          keterangan: t.keterangan, 
-          tipe: t.tipe, 
-          date: t.tanggal 
-      });
+      setFormData({ keterangan: t.keterangan, tipe: t.tipe, date: t.tanggal });
       setRealNominal(t.nominal);
       setDisplayNominal(formatNumberDots(t.nominal.toString()));
       setShowModal(true);
@@ -149,7 +162,7 @@ export default function KeuanganPage() {
   const handleDelete = async (id: string) => {
       const result = await Swal.fire({
           title: 'Hapus?',
-          text: "Apakah Anda yakin ingin menghapus data ini?",
+          text: "Yakin ingin menghapus data ini?",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444', 
@@ -173,15 +186,11 @@ export default function KeuanganPage() {
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!formData.keterangan || realNominal <= 0) return; 
-
       setIsSubmitting(true);
       try {
           if (editId) {
               await updateDoc(doc(db, 'keuangan', editId), {
-                  keterangan: formData.keterangan, 
-                  nominal: realNominal, 
-                  tipe: formData.tipe,
-                  tanggal: formData.date
+                  keterangan: formData.keterangan, nominal: realNominal, tipe: formData.tipe, tanggal: formData.date
               });
           } else {
               await addDoc(collection(db, 'keuangan'), {
@@ -189,24 +198,20 @@ export default function KeuanganPage() {
                   tanggal: formData.date, createdAt: new Date().toISOString()
               });
           }
-          handleOpenAdd(); 
-          setShowModal(false);
+          handleOpenAdd(); setShowModal(false); if (!editId) setCurrentPage(1); 
       } catch (error) { console.error(error); } 
       finally { setIsSubmitting(false); }
   };
 
+  // Export Logic
   const getFilteredData = () => {
     return transaksi.filter(t => {
         const d = new Date(t.tanggal);
-        const y = d.getFullYear();
-        const m = d.getMonth();
+        const y = d.getFullYear(); const m = d.getMonth();
         if (exportType === 'all') return true;
         if (exportType === 'year') return y === selectedYear;
         if (exportType === 'month') return y === selectedYear && m === selectedMonth;
-        if (exportType === 'quarter') {
-            const q = Math.floor(m / 3) + 1;
-            return y === selectedYear && q === selectedQuarter;
-        }
+        if (exportType === 'quarter') { const q = Math.floor(m / 3) + 1; return y === selectedYear && q === selectedQuarter; }
         return true;
     }).sort((a,b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
   };
@@ -226,9 +231,7 @@ export default function KeuanganPage() {
     if (dataToExport.length === 0) return; 
 
     let sumMasuk = 0; let sumKeluar = 0;
-    dataToExport.forEach(t => {
-        if (t.tipe === 'masuk') sumMasuk += Number(t.nominal); else sumKeluar += Number(t.nominal);
-    });
+    dataToExport.forEach(t => { if (t.tipe === 'masuk') sumMasuk += Number(t.nominal); else sumKeluar += Number(t.nominal); });
     const sumSaldo = sumMasuk - sumKeluar;
 
     if (exportFormat === 'excel') {
@@ -242,7 +245,7 @@ export default function KeuanganPage() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
         XLSX.writeFile(workbook, `Laporan_${periodTitle.replace(/ /g, '_')}.xlsx`);
     } else {
-        const doc: any = new jsPDF(); // Type assertion untuk bypass error overload jsPDF
+        const doc: any = new jsPDF(); 
         const pageWidth = doc.internal.pageSize.width;
         try { const imgData = await getBase64ImageFromURL('/logo-rt.png'); doc.addImage(imgData, 'PNG', 14, 10, 20, 20); } catch (e) { }
         doc.setFont("helvetica", "bold"); doc.setFontSize(12);
@@ -263,9 +266,7 @@ export default function KeuanganPage() {
         doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 150, 0); doc.text(formatRp(sumMasuk), 60, startYSummary + 9); doc.setTextColor(200, 0, 0); doc.text(formatRp(sumKeluar), 60, startYSummary + 18);
         doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(50); doc.text("Selisih / Saldo Periode :", pageWidth - 95, startYSummary + 13);
         doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0); doc.text(formatRp(sumSaldo), pageWidth - 20, startYSummary + 13, { align: "right" });
-        
         const tableRows = dataToExport.map((t, index) => [ (index + 1).toString(), formatDate(t.tanggal), t.keterangan, t.tipe === 'masuk' ? formatRpNoSymbol(t.nominal) : "-", t.tipe === 'keluar' ? formatRpNoSymbol(t.nominal) : "-" ]);
-        
         autoTable(doc, {
             head: [["No", "Tanggal", "Uraian / Keterangan", "Pemasukan", "Pengeluaran"]], body: tableRows, startY: startYSummary + 30, theme: 'striped',
             headStyles: { fillColor: [66, 103, 178], textColor: 255, fontSize: 9, halign: 'center' }, bodyStyles: { fontSize: 9, textColor: 50 },
@@ -304,21 +305,22 @@ export default function KeuanganPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
-      {/* CSS GLOBAL: GRADASI ORIGINAL + MOBILE SCROLL FIX */}
+      {/* CSS GLOBAL UTAMA */}
       <style jsx global>{`
           .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
           @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
           
+          /* FIX SCROLL DISINI */
           .custom-scroll {
-              -webkit-overflow-scrolling: touch; 
-              overscroll-behavior-y: contain; 
-              will-change: transform; 
+              -webkit-overflow-scrolling: touch; /* VITAL FOR MOBILE SMOOTHNESS */
+              overscroll-behavior-y: contain; /* Prevents parent scroll chaining */
+              will-change: transform; /* Hint to browser to use GPU */
           }
           .custom-scroll::-webkit-scrollbar { width: 6px; }
           .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
           .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-          /* ORIGINAL NEON GRADIENT */
+          /* NEON CARD GRADIENT */
           .neon-card {
             position: relative;
             background: #111;
@@ -348,7 +350,8 @@ export default function KeuanganPage() {
             z-index: 2;
           }
 
-          /* --- MOBILE SCROLL FIX: --- */
+          /* FIXED SCROLL MOBILE */
+          /* Class ini memastikan di HP container list tidak memicu scrollbar sendiri */
           @media (max-width: 768px) {
              .scroll-card-fix .card-inner {
                  height: auto !important;
@@ -360,11 +363,13 @@ export default function KeuanganPage() {
              }
           }
 
+          /* ANIMASI HEALTH BAR */
           @keyframes shimmer {
               0% { background-position: -200% 0; }
               100% { background-position: 200% 0; }
           }
 
+          /* SweetAlert Override */
           div:where(.swal2-container) div:where(.compact-modal-popup) { border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
           .compact-modal-title { font-size: 1.1rem !important; font-weight: 700 !important; margin-bottom: 0.5rem !important; }
           .compact-modal-actions { margin-top: 1rem !important; gap: 8px !important; }
@@ -391,17 +396,18 @@ export default function KeuanganPage() {
           <CardStat icon={<LuFileText />} label="Transaksi" value={stats.totalTransaksi} sub="TOTAL DATA" color="#00eaff" bg="rgba(0, 234, 255, 0.1)"/>
       </div>
 
-      {/* HEALTH BAR */}
+      {/* MONTHLY HEALTH BAR */}
       <MonthlyHealthBar masuk={stats.bulanIniMasuk} keluar={stats.bulanIniKeluar} />
 
-      {/* LIST RIWAYAT */}
+      {/* LIST RIWAYAT (Fixed: Pagination 5 per page + Scroll Fix) */}
       <div className="neon-card scroll-card-fix" style={{'--c1': '#444', '--c2': '#666'} as React.CSSProperties}>
-          <div className="card-inner" style={{ minHeight: '400px', height: 'calc(100vh - 300px)' }}>
+          {/* Card inner height diset 'fit-content' agar tidak memaksa scroll di HP */}
+          <div className="card-inner" style={{ height: 'fit-content', minHeight: '400px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Riwayat Transaksi</h3>
                     <div style={{ display: 'flex', gap: '0.8rem', marginLeft: 'auto' }}>
                         <button onClick={() => setShowExportModal(true)} style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', cursor: 'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
-                            <LuDownload /> Export Laporan
+                            <LuDownload /> Export
                         </button>
                         <button onClick={handleOpenAdd} style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)', border: 'none', color: '#000', borderRadius: '6px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700', display:'flex', alignItems:'center', gap:'6px', boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)' }}>
                           <LuPlus size="16"/> Tambah
@@ -409,9 +415,10 @@ export default function KeuanganPage() {
                     </div>
                 </div>
                 
-                <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-                    {transaksi.length > 0 ? transaksi.slice(0, 100).map((t, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
+                {/* CONTENT CONTAINER */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {currentItems.length > 0 ? currentItems.map((t, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', position: 'relative' }}>
                             <div style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0, background: t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${t.tipe === 'masuk' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, color: t.tipe === 'masuk' ? '#00ff88' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
                                 {t.tipe === 'masuk' ? <LuArrowUp /> : <LuArrowDown />}
                             </div>
@@ -434,14 +441,40 @@ export default function KeuanganPage() {
                             </div>
                         </div>
                     )) : <div style={{ textAlign: 'center', padding: '2rem', color: '#666', fontSize: '0.9rem' }}>Belum ada data transaksi.</div>}
-                    
-                    {transaksi.length > 100 && (
-                        <div style={{textAlign:'center', padding:'1rem', fontSize:'0.75rem', color:'#555', borderTop:'1px solid rgba(255,255,255,0.05)', marginTop:'1rem'}}>
-                            *Hanya menampilkan 100 data terbaru.<br/>
-                            Gunakan fitur <b>Export Laporan</b> untuk melihat data lengkap.
-                        </div>
-                    )}
                 </div>
+
+                {/* PAGINATION CONTROLS */}
+                {transaksi.length > itemsPerPage && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                            Halaman {currentPage} dari {totalPages}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button 
+                                onClick={handlePrevPage} 
+                                disabled={currentPage === 1}
+                                style={{ 
+                                    background: currentPage === 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
+                                    color: currentPage === 1 ? '#444' : '#fff', 
+                                    border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', fontSize:'1.1rem'
+                                }}>
+                                <LuChevronLeft />
+                            </button>
+                            <button 
+                                onClick={handleNextPage} 
+                                disabled={currentPage === totalPages}
+                                style={{ 
+                                    background: currentPage === totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)', 
+                                    color: currentPage === totalPages ? '#444' : '#fff', 
+                                    border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', fontSize:'1.1rem'
+                                }}>
+                                <LuChevronRight />
+                            </button>
+                        </div>
+                    </div>
+                )}
           </div>
       </div>
 
@@ -531,7 +564,7 @@ export default function KeuanganPage() {
   );
 }
 
-// --- INTERFACE UNTUK COMPONENT CARD ---
+// --- INTERFACE CARD ---
 interface CardStatProps {
   icon: React.ReactNode;
   label: string;
@@ -572,7 +605,7 @@ const CardStat: React.FC<CardStatProps> = ({ icon, label, value, sub, color, bg,
     );
 };
 
-// --- COMPONENT: MONTHLY HEALTH BAR ---
+// --- MONTHLY HEALTH BAR ---
 const MonthlyHealthBar = ({ masuk, keluar }: { masuk: number, keluar: number }) => {
     const percentage = masuk > 0 ? (keluar / masuk) * 100 : (keluar > 0 ? 100 : 0);
     const isDanger = keluar > masuk;
