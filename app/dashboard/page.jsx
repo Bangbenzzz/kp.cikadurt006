@@ -1,7 +1,6 @@
 "use client";
 
 // --- 1. NUCLEAR CONSOLE PATCH (UPDATED) ---
-// Membisukan error/warning spesifik dari Recharts agar tidak spam di console
 if (typeof window !== 'undefined') {
   const originalError = console.error;
   const originalWarn = console.warn;
@@ -13,7 +12,6 @@ if (typeof window !== 'undefined') {
   };
 
   console.warn = (...args) => {
-    // Menyembunyikan warning spesifik width/height charts
     if (/width\(/.test(args[0]) && /height\(/.test(args[0])) return;
     originalWarn.call(console, ...args);
   };
@@ -126,7 +124,7 @@ export default function DashboardHome() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         
-        {/* CSS GLOBAL - SOLID FLAT STYLE */}
+        {/* CSS GLOBAL: GRADASI ORIGINAL + MOBILE SCROLL FIX */}
         <style jsx global>{`
             .stat-grid { 
                 display: grid; 
@@ -144,7 +142,7 @@ export default function DashboardHome() {
                 }
             }
 
-            /* STYLE FLAT (SOLID) */
+            /* --- DESAIN GRADASI ORIGINAL --- */
             .neon-card {
                 position: relative;
                 background: #111; 
@@ -153,13 +151,20 @@ export default function DashboardHome() {
                 border: 1px solid rgba(255,255,255,0.08);
             }
 
-            /* Hapus before pseudo-element untuk menghilangkan glow */
             .neon-card::before {
-                display: none;
+                content: "";
+                position: absolute;
+                inset: -1px; 
+                border-radius: 16px;
+                z-index: -1;
+                background: linear-gradient(135deg, var(--c1), transparent 50%, transparent 80%, var(--c2));
+                filter: blur(15px); 
+                opacity: 0.5; 
+                transition: opacity 0.3s ease;
             }
-
+            
             .card-inner {
-                background: #111;
+                background: linear-gradient(to bottom, #161616, #111);
                 border-radius: 16px;
                 padding: 1.2rem;
                 height: 100%;
@@ -167,6 +172,21 @@ export default function DashboardHome() {
                 flex-direction: column;
                 position: relative;
                 z-index: 2; 
+            }
+
+            /* --- MOBILE SCROLL FIX: --- */
+            /* Matikan scroll internal di HP agar scroll halaman utama tidak nyangkut */
+            @media (max-width: 768px) {
+                .scroll-card-fix .card-inner {
+                    height: auto !important;
+                    min-height: 0 !important;
+                }
+                /* Membuka grid daftar agar memanjang */
+                .scroll-card-fix .grid-list-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                    gap: 0.8rem;
+                }
             }
         `}</style>
 
@@ -186,7 +206,7 @@ export default function DashboardHome() {
             </div>
         </div>
 
-        {/* --- GRID STATS (2x2 di Mobile, Solid) --- */}
+        {/* --- GRID STATS (2x2 di Mobile, Hover Off) --- */}
         <div className="stat-grid">
             <div className="neon-card" style={{'--c1': '#00eaff', '--c2': '#0055ff'}}>
                 <CardInner icon={<LuUsers />} label="Total Warga" value={stats.total} sub="JIWA" color="#00eaff" />
@@ -212,7 +232,7 @@ export default function DashboardHome() {
             <div className="neon-card" style={{'--c1': '#f59e0b', '--c2': '#d97706'}}>
                 <div className="card-inner">
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                        <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas
+                        <LuWallet style={{color: '#f59e0b'}}/> Grafik Kas (6 Bulan)
                     </h3>
                     <div style={{ width: '100%', height: '200px' }}>
                         {isClient && (
@@ -273,7 +293,7 @@ export default function DashboardHome() {
                     <h3 style={{ margin: '0 0 1.2rem', color: '#eee', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', fontWeight: '700', textTransform:'uppercase', letterSpacing:'0.5px' }}>
                         <LuUsers style={{color: '#0ea5e9'}}/> Komposisi Gender
                     </h3>
-                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', position:'relative' }}>
                         {isClient && (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -299,12 +319,14 @@ export default function DashboardHome() {
         </div>
 
         {/* --- DAFTAR WARGA TERBARU --- */}
-        <div className="neon-card" style={{'--c1': '#444', '--c2': '#666'}}>
+        {/* Class scroll-card-fix ditambahkan untuk perbaikan HP */}
+        <div className="neon-card scroll-card-fix" style={{'--c1': '#444', '--c2': '#666'}}>
             <div className="card-inner">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:'0.5rem' }}>
                     <h3 style={{ margin: 0, color: '#fff', fontSize: '0.9rem', fontWeight:'600' }}>Aktivitas Data Terbaru</h3>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.8rem' }}>
+                {/* Grid Container yang akan memanjang di HP */}
+                <div className="grid-list-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.8rem' }}>
                     {stats.latest.length > 0 ? stats.latest.map((w, i) => (
                         <div key={i} style={{ 
                             display: 'flex', alignItems: 'center', gap: '0.8rem', 
